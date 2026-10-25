@@ -27,7 +27,7 @@ ui <- navbarPage(
                layout_column_wrap(
                  width = "220px", 
                  card(class = "bg-light", card_body(
-                   strong("Is my city warming?"),
+                   strong("Is my city getting warmer?"),
                    p(class = "text-muted small mb-0", "Explore Tab, then Statistics > Trends")
                  )),
                  card(class = "bg-light", card_body(
