@@ -4,14 +4,13 @@ library(bslib)
 
 # climate_data <- placeholder for data loading; 
 
-# right now, this is the base shiny app code; will update with 
-# mockup of the app soon
+# starting to update app with basic layout and themes, will continue to add to this
 
 ui <- navbarPage(
   title = "Local Climate Explorer", #name of the app
   position = "static-top", #keeps it at the top of the window
   collapsible = TRUE, #will get smaller if the screen is smaller
-  fluid = TRUE, #keeps it propotional to the size of the window
+  fluid = TRUE, #keeps it proportional to the size of the window
   theme = bs_theme(version = 5, bootswatch = "flatly"), #theme
   
   #set up the different tabs
@@ -43,7 +42,7 @@ ui <- navbarPage(
                    strong("Was this summer unusual?"),
                    p(class = "text-muted small mb-0", "Statistics > Compare Two Time Periods")
                  )),
-                 
+ #need to add additional cards with data sources, names, etc                
                )
              )
            )
