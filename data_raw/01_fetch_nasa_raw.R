@@ -42,3 +42,13 @@ nasa_raw_list <- pmap(
   fetch_nasa_raw
 )
 names(nasa_raw_list) <- city_coords$CITY
+
+# Save rds and file size check 
+saveRDS(nasa_raw_list, "data_raw/nasa_raw_snapshot.rds")
+
+raw_nasa_path <- "data_raw/nasa_raw_snapshot.rds"
+if (file.exists(raw_nasa_path)) {
+  size_mb <- file.info(raw_nasa_path)$size / (1024 * 1024)
+  message(sprintf("[File Info] NASA Raw Snapshot Size: %.2f MB", size_mb))
+}
+
