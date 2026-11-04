@@ -27,7 +27,7 @@ fetch_nasa_raw <- function(CITY, LAT, LON) {
     
     resp <- req |> req_perform()
     
-    # FIXED: Added 'resp |>' so the response object is properly passed
+    # Added 'resp |>' so the response object is properly passed
     resp |> resp_body_string() |> fromJSON(simplifyVector = FALSE)
     
   }, error = function(e) {

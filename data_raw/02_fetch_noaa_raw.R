@@ -24,3 +24,9 @@ fetch_noaa_raw <- function(station_id, city_name) {
   })
 }
 
+# Execute batch fetch across all 48 station IDs
+noaa_raw_list <- imap(
+  setNames(city_coords$station_info_id, city_coords$CITY),
+  ~ fetch_noaa_raw(.x, .y)
+)
+
