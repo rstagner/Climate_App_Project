@@ -1,0 +1,523 @@
+---
+title: "Group Project Environmental Change"
+author: "Choudhary"
+date: "2026-10-24"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+install.packages("sf")
+```
+
+
+```{r}
+library(httr2)
+library(jsonlite)
+library(dplyr)
+library(tibble)
+library(purrr)
+library(sf)
+
+url <- "https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,PRECTOTCORR&community=RE&longitude=-77.0369&latitude=38.9072&start=19900101&end=20251231&format=JSON"
+
+# Fetch and parse JSON
+resp <- request(url) |> req_perform()
+parsed <- resp_body_json(resp)
+
+# Extract parameters list (e.g., T2M, PRECTOTCORR)
+param_list <- parsed$properties$parameter
+
+# Convert each parameter list into a tidy tibble and merge by date
+climate_df <- map(names(param_list), function(param_name) {
+  p_data <- param_list[[param_name]]
+  tibble(
+    date_str = names(p_data),
+    value = unlist(p_data)
+  ) |> 
+    rename(!!param_name := value)
+}) |> 
+  reduce(full_join, by = "date_str") |> 
+  mutate(date = as.Date(date_str, format = "%Y%m%d")) |> 
+  select(-date_str) |> 
+  relocate(date)
+
+# Check the dimensions now (should be ~13,000 rows by 3 columns)
+dim(climate_df)
+head(climate_df)
+NASA.data <- climate_df
+```
+
+```{r}
+view(climate_df)
+```
+
+
+```{r}
+library(readr)
+url <- "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/USW00013743.csv"
+ghcn_data <- read_csv(url)
+```
+
+```{r}
+View(ghcn_data)
+```
+
+```{r}
+NOAA.data <- ghcn_data
+```
+
+
+
+```{r}
+url <- "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2023_Gazetteer/2023_Gaz_place_national.zip"
+
+temp <- tempfile(fileext = ".zip")
+
+download.file(url, temp, mode = "wb")
+
+unzip(temp, list = TRUE)
+```
+
+```{r}
+files <- unzip(temp, exdir = tempdir())
+
+gaz_data <- readr::read_tsv(
+  files[grepl("\\.txt$", files, ignore.case = TRUE)],
+  show_col_types = FALSE
+)
+
+dim(gaz_data)
+View(gaz_data)
+```
+
+```{r}
+Census.data <- gaz_data
+```
+
+```{r}
+NASA.data
+NOAA.data
+Census.data
+```
+
+
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# ==========================================
+# 1. NASA POWER Climate Data EDA
+# ==========================================
+cat("=== 1. NASA POWER DATA SUMMARY ===\n")
+print(dim(NASA.data))
+print(str(NASA.data))
+summary(NASA.data)
+
+cat("Missing values in NASA.data:\n")
+print(colSums(is.na(NASA.data)))
+
+# Quick visual: Temperature trend over time
+ggplot(NASA.data, aes(x = date, y = T2M)) +
+  geom_line(color = "#1a73e8", alpha = 0.7) +
+  labs(title = "NASA POWER Daily Mean Temperature (1990-2025)",
+       x = "Date", y = "Temperature (2M)") +
+  theme_minimal()
+
+
+# ==========================================
+# 2. NOAA GHCN Weather Station Data EDA
+# ==========================================
+cat("\n=== 2. NOAA GHCN WEATHER STATION DATA SUMMARY ===\n")
+if (exists("NOAA.data")) {
+  print(dim(NOAA.data))
+  print(str(NOAA.data))
+  
+  cat("Missing values in NOAA.data (sample of first 10 columns):\n")
+  print(colSums(is.na(NOAA.data %>% select(1:min(10, ncol(NOAA.data))))))
+} else {
+  cat("NOAA.data object not found. Make sure to assign NOAA.data <- ghcn_data\n")
+}
+
+
+# ==========================================
+# 3. U.S. Census Bureau Gazetteer Data EDA
+# ==========================================
+cat("\n=== 3. CENSUS GAZETTEER DATA SUMMARY ===\n")
+if (exists("Census.data")) {
+  print(dim(Census.data))
+  print(str(Census.data))
+  
+  # Preview first few rows of place names and coordinates
+  head(Census.data %>% select(matches("NAME|LAT|LONG|INTPTLAT|INTPTLONG", ignore.case = TRUE)), 5)
+} else {
+  cat("Census.data object not found. Make sure to assign Census.data <- gaz_data\n")
+}
+```
+```{r}
+library(httr2)
+library(jsonlite)
+
+# 1. Define your parameters
+# Example: Station ID for Central Park, NY (USW00094728)
+station_id <- "USW00094728"
+start_date <- "2025-01-01"
+end_date   <- "2025-01-31"
+
+# 2. Build the request for NCEI's Data Service API v1
+base_url <- "https://www.ncei.noaa.gov/access/services/data/v1"
+
+req <- request(base_url) |>
+  req_url_query(
+    dataset        = "daily-summaries",
+    stations       = station_id,
+    startDate      = start_date,
+    endDate        = end_date,
+    dataTypes      = "TMAX,TMIN,PRCP", # Specify exactly what variables you want
+    format         = "json",
+    units          = "standard",       # Or "metric"
+    includeAttributes = "false"
+  )
+
+# 3. Perform the request and check the response
+resp <- req_perform(req)
+
+# 4. Parse the JSON response directly into an R data frame
+weather_data <- resp_body_json(resp, simplifyVector = TRUE)
+
+# View the first few rows of your targeted dataset
+head(weather_data)
+```
+
+```{r}
+library(tidyverse)
+
+# Quick look at structure and column types
+glimpse(weather_data)
+
+# Summary statistics for numeric columns (Temperature, Precipitation)
+summary(weather_data)
+
+# Alternatively, for a deeper statistical overview, use the skimr package:
+# library(skimr)
+# skim(weather_data)
+```
+
+```{r}
+library(tidyverse)
+library(httr2)
+library(jsonlite)
+
+# 1. Assume Census.data is already loaded from your Gazetteer zip download
+# Let's filter for a test vector of major cities or extract top N populous cities
+# (Census Gazetteer columns typically include USPS, NAME, INTPTLAT, INTPTLONG)
+
+target_cities <- Census.data |>
+  filter(USPS %in% c("DC", "NY", "IL", "CA", "TX")) |> # Example state filter or select top cities
+  select(name = USPS, city_name = NAME, lat = INTPTLAT, lon = INTPTLONG) |>
+  mutate(
+    lat = as.numeric(lat),
+    lon = as.numeric(lon)
+  ) |>
+  head(5) # Limit to 5 for initial testing
+
+# 2. Generalize your NASA POWER fetch function to accept lat/lon dynamically
+get_nasa_power_city <- function(city_name, lat, lon, start = "19900101", end = "20251231") {
+  url <- sprintf(
+    "https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,QV2M&community=RE&longitude=%f&latitude=%f&start=%s&end=%s&format=JSON",
+    lon, lat, start, end
+  )
+  
+  tryCatch({
+    resp <- request(url) |> req_perform()
+    parsed <- resp_body_json(resp)
+    param_list <- parsed$properties$parameter
+    
+    # Map parameters into a tibble
+    city_df <- map(names(param_list), function(param_name) {
+      p_data <- param_list[[param_name]]
+      tibble(
+        date_str = names(p_data),
+        value = unlist(p_data)
+      ) |> rename(!!param_name := value)
+    }) |>
+      reduce(full_join, by = "date_str") |>
+      mutate(
+        date = as.Date(date_str, format = "%Y%m%d"),
+        city = city_name
+      ) |>
+      select(-date_str) |>
+      relocate(city, date)
+    
+    return(city_df)
+  }, error = function(e) {
+    message(paste("Error fetching data for", city_name, ":", e$message))
+    return(NULL)
+  })
+}
+
+# 3. Iterate across all target cities using purrr::pmap or map2
+all_cities_nasa <- pmap_dfr(
+  target_cities, 
+  ~ get_nasa_power_city(..2, ..3, ..4)
+)
+
+head(all_cities_nasa)
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+
+# 1. Prepare target city coordinates from Census Gazetteer data
+# (Assuming gaz_data is already loaded from your Gazetteer zip download)
+city_coords <- gaz_data |>
+  filter(USPS %in% c("DC", "NY", "IL", "CA", "TX")) |> # Filter for target states or cities
+  select(state = USPS, city_name = NAME, lat = INTPTLAT, lon = INTPTLONG) |>
+  mutate(
+    lat = as.numeric(lat),
+    lon = as.numeric(lon)
+  ) |>
+  drop_na(lat, lon)
+
+# Convert cities data frame to an sf spatial object (WGS 84 coordinate reference system)
+cities_sf <- st_as_sf(city_coords, coords = c("lon", "lat"), crs = 4326)
+
+# 2. Download and parse the NOAA GHCN station inventory metadata
+stations_url <- "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
+col_widths <- c(11, 9, 9, 7, 31, 4, 4, 5)
+col_names <- c("station_id", "lat", "lon", "elevation", "state", "name", "gsn_flag", "wmo_id")
+
+stations_df <- read_fwf(stations_url, col_positions = fwf_widths(col_widths, col_names)) |>
+  filter(str_starts(station_id, "US")) # Keep U.S. stations only
+
+# Convert stations data frame into an sf spatial object
+stations_sf <- sf::st_as_sf(stations_df, coords = c("lon", "lat"), crs = 4326)
+
+# 3. Find the nearest GHCN station index for each city point
+nearest_idx <- st_nearest_feature(cities_sf, stations_sf)
+
+# 4. Merge city metadata with the matched station records and calculate distance
+matched_stations <- cities_sf |>
+  mutate(
+    station_id   = stations_df$station_id[nearest_idx],
+    station_name = stations_df$name[nearest_idx],
+    station_lat  = stations_df$lat[nearest_idx],
+    station_lon  = stations_df$lon[nearest_idx],
+    # Calculate exact great-circle distance in kilometers between city and station
+    distance_km  = as.numeric(st_distance(cities_sf, stations_sf[nearest_idx, ], by_element = TRUE)) / 1000
+  ) |>
+  st_drop_geometry() # Convert back to a clean data frame tibble
+
+# Inspect the final matched table
+print(matched_stations)
+```
+```{r}
+library(tidyverse)
+
+# 1. Define the top 50 most populated U.S. cities (Name and State Abbreviation)
+top_50_lookup <- tibble(
+  city_name = c(
+    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", 
+    "Philadelphia", "San Antonio", "San Diego", "Dallas", "Austin", 
+    "Jacksonville", "Fort Worth", "Columbus", "Charlotte", "Indianapolis", 
+    "San Francisco", "Seattle", "Denver", "Washington", "Boston", 
+    "El Paso", "Nashville-Davidson", "Detroit", "Oklahoma City", "Portland", 
+    "Las Vegas", "Memphis", "Louisville/Jefferson County", "Baltimore", "Milwaukee", 
+    "Albuquerque", "Tucson", "Fresno", "Sacramento", "Mesa", 
+    "Kansas City", "Atlanta", "Omaha", "Colorado Springs", "Raleigh", 
+    "Long Beach", "Virginia Beach", "Miami", "Oakland", "Minneapolis", 
+    "Tulsa", "Bakersfield", "Wichita", "Arlington", "Aurora"
+  ),
+  state_abbr = c(
+    "NY", "CA", "IL", "TX", "AZ", 
+    "PA", "TX", "CA", "TX", "TX", 
+    "FL", "TX", "OH", "NC", "IN", 
+    "CA", "WA", "CO", "DC", "MA", 
+    "TX", "TN", "MI", "OK", "OR", 
+    "NV", "TN", "KY", "MD", "WI", 
+    "NM", "AZ", "CA", "CA", "AZ", 
+    "MO", "GA", "NE", "CO", "NC", 
+    "CA", "VA", "FL", "CA", "MN", 
+    "OK", "CA", "KS", "TX", "CO"
+  )
+)
+
+# 2. Join with your loaded Census.data (gaz_data) to extract official coordinates
+top_50_cities <- top_50_lookup |>
+  left_join(
+    Census.data |> 
+      mutate(
+        # Clean standard Census place suffixes to match clean city names
+        clean_name = str_remove(NAME, " (city|town|municipality|village|consolidated government)$"),
+        INTPTLAT = as.numeric(INTPTLAT),
+        INTPTLONG = as.numeric(INTPTLONG)
+      ),
+    by = c("city_name" = "clean_name", "state_abbr" = "USPS")
+  ) |>
+  select(
+    city = city_name, 
+    state = state_abbr, 
+    lat = INTPTLAT, 
+    lon = INTPTLONG, 
+    geoid = GEOID
+  )
+
+# Inspect your fully prepared city coordinate table
+print(top_50_cities, n = 15)
+```
+
+```{r}
+view(top_50_cities)
+```
+
+```{r}
+
+# ==============================================================================
+# 1. TOP 50 CITIES REFERENCE TABLE
+# ==============================================================================
+top_50_lookup <- tibble(
+  city_name = c(
+    "New York", "Los Angeles", "Chicago", "Houston", "Phoenix", 
+    "Philadelphia", "San Antonio", "San Diego", "Dallas", "Austin", 
+    "Jacksonville", "Fort Worth", "Columbus", "Charlotte", "Indianapolis", 
+    "San Francisco", "Seattle", "Denver", "Washington", "Boston", 
+    "El Paso", "Nashville-Davidson", "Detroit", "Oklahoma City", "Portland", 
+    "Las Vegas", "Memphis", "Louisville/Jefferson County", "Baltimore", "Milwaukee", 
+    "Albuquerque", "Tucson", "Fresno", "Sacramento", "Mesa", 
+    "Kansas City", "Atlanta", "Omaha", "Colorado Springs", "Raleigh", 
+    "Long Beach", "Virginia Beach", "Miami", "Oakland", "Minneapolis", 
+    "Tulsa", "Bakersfield", "Wichita", "Arlington", "Aurora"
+  ),
+  state_abbr = c(
+    "NY", "CA", "IL", "TX", "AZ", 
+    "PA", "TX", "CA", "TX", "TX", 
+    "FL", "TX", "OH", "NC", "IN", 
+    "CA", "WA", "CO", "DC", "MA", 
+    "TX", "TN", "MI", "OK", "OR", 
+    "NV", "TN", "KY", "MD", "WI", 
+    "NM", "AZ", "CA", "CA", "AZ", 
+    "MO", "GA", "NE", "CO", "NC", 
+    "CA", "VA", "FL", "CA", "MN", 
+    "OK", "CA", "KS", "TX", "CO"
+  )
+)
+
+# Join with Census.data (gaz_data) to get official latitude and longitude coordinates
+top_50_cities <- top_50_lookup |>
+  left_join(
+    Census.data |> 
+      mutate(
+        clean_name = str_remove(NAME, " (city|town|municipality|village|consolidated government)$"),
+        INTPTLAT = as.numeric(INTPTLAT),
+        INTPTLONG = as.numeric(INTPTLONG)
+      ),
+    by = c("city_name" = "clean_name", "state_abbr" = "USPS")
+  ) |>
+  select(city = city_name, state = state_abbr, lat = INTPTLAT, lon = INTPTLONG) |>
+  drop_na(lat, lon)
+
+
+# ==============================================================================
+# 2. MATCH NEAREST NOAA GHCN STATIONS USING {sf}
+# ==============================================================================
+# Download NOAA station metadata
+stations_url <- "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
+col_widths <- c(11, 9, 9, 7, 31, 4, 4, 5)
+col_names <- c("station_id", "lat", "lon", "elevation", "state", "name", "gsn_flag", "wmo_id")
+
+stations_df <- read_fwf(stations_url, col_positions = fwf_widths(col_widths, col_names)) |>
+  filter(str_starts(station_id, "US"))
+
+# Convert both to sf spatial objects
+cities_sf <- st_as_sf(top_50_cities, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+stations_sf <- st_as_sf(stations_df, coords = c("lon", "lat"), crs = 4326)
+
+# Find nearest station indices
+nearest_idx <- st_nearest_feature(cities_sf, stations_sf)
+
+# Build matched station mapping table
+matched_stations <- top_50_cities |>
+  mutate(
+    station_id   = stations_df$station_id[nearest_idx],
+    station_name = stations_df$name[nearest_idx],
+    distance_km  = as.numeric(st_distance(cities_sf, stations_sf[nearest_idx, ], by_element = TRUE)) / 1000
+  )
+
+print("Matched Stations Preview:")
+print(head(matched_stations))
+
+
+# ==============================================================================
+# 3. BATCH FETCH NASA POWER CLIMATE DATA ACROSS ALL 50 CITIES
+# ==============================================================================
+get_nasa_power_city <- function(city_name, lat, lon, start = "19900101", end = format(Sys.Date(), "%Y%m%d")) {
+  url <- sprintf(
+    "https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,QV2M&community=RE&longitude=%f&latitude=%f&start=%s&end=%s&format=JSON",
+    lon, lat, start, end
+  )
+  
+  tryCatch({
+    resp <- request(url) |> req_perform()
+    parsed <- resp_body_json(resp)
+    param_list <- parsed$properties$parameter
+    
+    map(names(param_list), function(param_name) {
+      p_data <- param_list[[param_name]]
+      tibble(date_str = names(p_data), value = unlist(p_data)) |> 
+        rename(!!param_name := value)
+    }) |>
+      reduce(full_join, by = "date_str") |>
+      mutate(
+        date = as.Date(date_str, format = "%Y%m%d"),
+        city = city_name
+      ) |>
+      select(-date_str) |>
+      relocate(city, date)
+  }, error = function(e) {
+    message(paste("Error fetching data for", city_name, ":", e$message))
+    return(NULL)
+  })
+}
+
+# Run batch pull across all 50 cities using pmap_dfr
+# (Note: For all 50 cities, this may take 1-2 minutes to query safely)
+all_cities_nasa <- pmap_dfr(
+  top_50_cities, 
+  ~ get_nasa_power_city(..1, ..3, ..4)
+)
+
+print("NASA Climate Data Panel Preview:")
+print(head(all_cities_nasa))
+```
+
+
+```{r}
+print(all_cities_nasa)
+```
+
+```{r}
+dim(top_50_cities)
+```
+
+```{r}
+# See which cities from your lookup list didn't get coordinates
+unmatched_cities <- top_50_lookup |>
+  anti_join(
+    Census.data |> 
+      mutate(clean_name = str_remove(NAME, " (city|town|municipality|village|consolidated government)$")),
+    by = c("city_name" = "clean_name", "state_abbr" = "USPS")
+  )
+
+print(unmatched_cities)
+
+# 3 dropped cities, Indianapolis, IN, Nashville-Davison, TN, and Louisville/Jefferson County, KY.
+```
+
+
+
+
