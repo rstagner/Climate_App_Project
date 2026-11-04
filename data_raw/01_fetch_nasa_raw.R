@@ -35,3 +35,10 @@ fetch_nasa_raw <- function(CITY, LAT, LON) {
     NULL
   })
 }
+
+# Execute batch fetch across all 48 cities
+nasa_raw_list <- pmap(
+  city_coords |> select(CITY, LAT, LON),
+  fetch_nasa_raw
+)
+names(nasa_raw_list) <- city_coords$CITY
