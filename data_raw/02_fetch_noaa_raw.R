@@ -30,3 +30,14 @@ noaa_raw_list <- imap(
   ~ fetch_noaa_raw(.x, .y)
 )
 
+# Save rds and check file size
+saveRDS(noaa_raw_list, "data_raw/noaa_raw_snapshot.rds")
+
+raw_noaa_path <- "data_raw/noaa_raw_snapshot.rds"
+if (file.exists(raw_noaa_path)) {
+  size_mb <- file.info(raw_noaa_path)$size / (1024 * 1024)
+  message(sprintf("\n[Success] Full raw NOAA data exported to '%s'", csv_path))
+  message(sprintf("[File Info] NOAA Raw Snapshot RDS Size: %.2f MB | Total Rows: %s", 
+                  size_mb, format(nrow(noaa_raw_full), big.mark = ",")))
+}
+file.rename("data_raw/noaa_raw_snapshot.rds", "data_raw/noaa_raw_11-03-2026.rds")

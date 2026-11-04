@@ -51,4 +51,4 @@ if (file.exists(raw_nasa_path)) {
   size_mb <- file.info(raw_nasa_path)$size / (1024 * 1024)
   message(sprintf("[File Info] NASA Raw Snapshot Size: %.2f MB", size_mb))
 }
-
+file.rename("data_raw/nasa_raw_snapshot.rds", "data_raw/nasa_raw_11-03-2026.rds")
