@@ -81,3 +81,5 @@ city_coords <- tibble::tribble(
   "West",      "Albuquerque",        "NM",   35.0844,    -106.6504,  "USW00023050",
   "West",      "Tucson",             "AZ",   32.2226,    -110.9747,  "USW00023160"
 )
+
+message(sprintf("[Config Loaded] Successfully loaded %d cities across 4 U.S. regions.", nrow(city_coords)))
