@@ -55,3 +55,12 @@ nasa_tidy <- imap_dfr(nasa_raw_list, function(city_json, city_name) {
     max_temp    = T2M_MAX,
     min_temp    = T2M_MIN
   )
+
+
+# Save rds and check file size
+saveRDS(nasa_tidy, "data/nasa_tidy.rds")
+file.size("data/nasa_tidy.rds")
+
+
+
+
