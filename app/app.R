@@ -15,8 +15,8 @@ ui <- navbarPage(
   
   #set up the different tabs
   tabPanel("About",
-              h2("How has the climate changed where you live?"),
-              p("A demonstration app for teachers and students. With this app, you can explore
+           h2("How has the climate changed where you live?"),
+           p("A demonstration app for teachers and students. With this app, you can explore
                 daily temperatures and precipitation data for cities around the U.S. since 1990,
                 test whether trends are statistically meaningful, and compare NASA satellite-modeled
                 data with NOAA weather station records."),
@@ -41,30 +41,55 @@ ui <- navbarPage(
                  card(class = "bg-light", card_body(
                    strong("Was this summer unusual?"),
                    p(class = "text-muted small mb-0", "Statistics > Compare Two Time Periods")
-                 )),
- #need to add additional cards with data sources, names, etc                
+                 ))
+                 #need to add additional cards with data sources, names, etc                
                )
              )
-           )
-    ),
+           ),
+           layout_columns(
+             col_widths = c(8, 4),
+             
+             card(
+               card_header("Data Sources"),
+               card_body(
+                 p(strong("NASA POWER"), "daily point data, modeled from satellite and reanalysis products (grid-cell estimates)"),
+                 p(strong("NOAA GHCN-Daily"), "weather station observations, quality-flagged values removed"),
+                 p(strong("U.S. Census Gazetteer"), "city names and coordinates"),
+                 p(class = "text-muted small mb-0", "Coverage: 48 cities from across the United States, January 1990 to November 2026. Date pulled [DATE]")
+               )
+             ),
+             
+             card(class = "bg-dark",
+               card_header("How to Use the App"),
+               card_body(
+                 p("1. Pick cities and a varible in Explore"),
+                 p("2. Look for patterns in the map and charts"),
+                 p("3. Test them in Statistics"),
+                 p("4. Read the plain-language interpretation")
+               )
+             )
+           ),
+           p(class = "text-muted small mb-0", "DATA 613 Group Project. Prashant Choudhary, Brook Estifanos, Rachel Stagner. References listed in the vignette")
+  ),
+  
   
   tabPanel("Explore",
            sidebarLayout(
              sidebarPanel(
                h4("Choose your Data"),
-                      p(class = "text-mut4ed small mb-0", "Tab layout and controls: Role 3"),
+               p(class = "text-muted small mb-0", "Tab layout and controls: Role 3"),
                selectInput("cities", strong("Cities"), choices = NULL, multiple = TRUE), #multiple cities or just 1?
                radioButtons("source", strong("Data source"), 
                             choices = c("NASA POWER (satellite)", "NOAA weather station", "Both, overlaid")
-                            ),
+               ),
                selectInput("variable", strong("Variable"),
                            choices = c("Mean temperature (°C)", "Max temperature (°C)",
-                                       "Min temperature (°C)", "Precipitation (mm)")
-                           ),
+                                       "Min temperature (°C)", "Precipitation (mm)") #get rid of precip
+               ),
                dateRangeInput("dates", strong("Date range"),
                               start = "1990-01-01", #start of data
                               end = "2026-10-25" #change to whatever our end date is
-                           ),
+               ),
                actionButton("button", "Submit")
                
              ),
@@ -72,18 +97,18 @@ ui <- navbarPage(
                p("Map, time series, and summary table will go here.")
              )
            )
-           ),
+  ),
   navbarMenu("Statistics",
              tabPanel("Trends",                 p("Role 1")),
              tabPanel("Satellite vs. Station",  p("Role 2")),
              tabPanel("Decades and Regions",    p("Role 3")),
              tabPanel("Compare Two Periods",    p("Role 1"))
-             )
-  
   )
+  
+)
 
 server <- function(input, output, session) {
   # Each stats panel's outputs go here, calling the functions from the R folder
-  }
+}
 
 shinyApp(ui = ui, server = server)
