@@ -50,7 +50,7 @@ ui <- navbarPage(
              col_widths = c(8, 4),
              
              card(
-               card_header("Data Sources"),
+               card_header(strong("Data Sources")),
                card_body(
                  p(strong("NASA POWER"), "daily point data, modeled from satellite and reanalysis products (grid-cell estimates)"),
                  p(strong("NOAA GHCN-Daily"), "weather station observations, quality-flagged values removed"),
@@ -60,7 +60,7 @@ ui <- navbarPage(
              ),
              
              card(class = "bg-dark",
-               card_header("How to Use the App"),
+               card_header(strong("How to Use the App")),
                card_body(
                  p("1. Pick cities and a varible in Explore"),
                  p("2. Look for patterns in the map and charts"),
