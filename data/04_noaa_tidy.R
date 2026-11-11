@@ -43,3 +43,21 @@ noaa_tidy <- noaa_wide |>
     min_temp  = TMIN
   )
 
+# data quality check
+
+# 1. make sure all cities intended are included
+unique_cities_noaa <- unique(noaa_tidy$city)
+cat("\n--- Unique Cities List ---\n")
+print(unique_cities_noaa)
+
+# 2. Create a summary of observations for each city and year
+city_year_summary_noaa <- noaa_tidy |>
+  mutate(year = format(date, "%Y")) |>
+  count(city, year, name = "observation_count")
+cat("\n--- Observations per City and Year ---\n")
+print(city_year_summary_noaa, n = 20) # Prints the first 20 rows; adjust 'n' as needed
+
+# 3. tibble preview 
+cat("\n--- NOAA Tidy Tibble Preview ---\n")
+print(noaa_tidy, n = 10)
+
