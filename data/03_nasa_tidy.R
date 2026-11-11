@@ -4,7 +4,7 @@ library(tidyverse)
 # load config
 source("R/00_config.R")
 
-# Load rds for 11/03/2026
+# Load rds for 11/03/2026--------------
 nasa_raw_list <- readRDS("data_raw/nasa_raw_11-03-2026.rds")
 
 # =========================================================================
@@ -56,6 +56,19 @@ nasa_tidy <- imap_dfr(nasa_raw_list, function(city_json, city_name) {
     min_temp    = T2M_MIN
   )
 
+# data quality check ----------
+
+# 1. make sure all cities intended are included
+unique_cities_nasa <- unique(nasa_tidy$city)
+cat("\n--- Unique Cities List ---\n")
+print(unique_cities_nasa)
+
+# 2. Create a summary of observations for each city and year
+city_year_summary_nasa <- nasa_tidy |>
+  mutate(year = format(date, "%Y")) |>
+  count(city, year, name = "observation_count")
+cat("\n--- Observations per City and Year ---\n")
+print(city_year_summary_nasa, n = 20) # Prints the first 20 rows; adjust 'n' as needed
 
 # Save rds and check file size
 saveRDS(nasa_tidy, "data/nasa_tidy.rds")
