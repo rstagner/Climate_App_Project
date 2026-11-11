@@ -5,10 +5,10 @@ library (tidyverse)
 # load config
 source("R/00_config.R")
 
-# Load the raw NOAA snapshot list
+#### Load the raw NOAA snapshot list--------------
 noaa_raw_list <- readRDS("data_raw/noaa_raw_11-03-2026.rds")
 
-# Combine raw list, clean, and pivot
+#### Combine raw list, clean, and pivot---------------
 noaa_wide <- bind_rows(noaa_raw_list) |>
   rename(DATE_STR = X2, ELEMENT = X3, VALUE = X4) |>
   filter(ELEMENT %in% c("TAVG", "TMAX", "TMIN")) |>
@@ -20,7 +20,7 @@ noaa_wide <- bind_rows(noaa_raw_list) |>
   pivot_wider(names_from = ELEMENT, values_from = VALUE)
 
 
-# Final standardization, fallback mean calculation, and transmute
+# Final standardization, fallback mean calculation, and transmute------------
 noaa_tidy <- noaa_wide |>
   left_join(city_coords |> select(CITY, LAT, LON), by = "CITY") |>
   mutate(
@@ -43,8 +43,7 @@ noaa_tidy <- noaa_wide |>
     min_temp  = TMIN
   )
 
-# data quality check
-
+# data quality check----------------
 # 1. make sure all cities intended are included
 unique_cities_noaa <- unique(noaa_tidy$city)
 cat("\n--- Unique Cities List ---\n")
@@ -61,3 +60,6 @@ print(city_year_summary_noaa, n = 20) # Prints the first 20 rows; adjust 'n' as 
 cat("\n--- NOAA Tidy Tibble Preview ---\n")
 print(noaa_tidy, n = 10)
 
+# Save rds and check file size-------------
+saveRDS(noaa_tidy, "data/noaa_tidy.rds")
+file.size("data/nasa_tidy.rds")
