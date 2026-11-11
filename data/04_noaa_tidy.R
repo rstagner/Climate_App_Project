@@ -20,3 +20,26 @@ noaa_wide <- bind_rows(noaa_raw_list) |>
   pivot_wider(names_from = ELEMENT, values_from = VALUE)
 
 
+# Final standardization, fallback mean calculation, and transmute
+noaa_tidy <- noaa_wide |>
+  left_join(city_coords |> select(CITY, LAT, LON), by = "CITY") |>
+  mutate(
+    # Fallback logic: Use TAVG if present, otherwise average TMAX and TMIN
+    calculated_mean = case_when(
+      !is.na(TAVG) ~ TAVG,
+      !is.na(TMAX) & !is.na(TMIN) ~ (TMAX + TMIN) / 2,
+      TRUE ~ NA_real_
+    ),
+    date = as.Date(DATE_STR, format = "%Y%m%d")
+  ) |>
+  filter(date >= as.Date("1990-01-01") & date <= Sys.Date()) |>
+  transmute(
+    date      = as.Date(DATE_STR, format = "%Y%m%d"),
+    city      = CITY,
+    lat       = LAT,
+    lon       = LON,
+    mean_temp = calculated_mean,
+    max_temp  = TMAX,
+    min_temp  = TMIN
+  )
+
