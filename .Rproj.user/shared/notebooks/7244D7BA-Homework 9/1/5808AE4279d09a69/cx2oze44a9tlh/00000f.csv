@@ -1,0 +1,5 @@
+"0","split_vars <- unique(as.character(oj_tree$frame$var))"
+"0","split_vars <- split_vars[split_vars != ""<leaf>""]"
+"0","train_pred <- predict(oj_tree, newdata=train, type=""class"")"
+"0","train_error <- mean(train_pred != train$Purchase)"
+"0","leaf_count <- sum(oj_tree$frame$var == ""<leaf>"")"

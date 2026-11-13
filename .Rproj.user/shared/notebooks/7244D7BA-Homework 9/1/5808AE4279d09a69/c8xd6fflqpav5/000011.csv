@@ -1,0 +1,4 @@
+"0","plot(oj_cv$size,cv_rates,type=""b"",pch=19,"
+"0","     xlab=""Tree size (terminal nodes)"","
+"0","     ylab=""Cross-validated classification error rate"","
+"0","     main=""OJ: Cross-validated classification error"")"

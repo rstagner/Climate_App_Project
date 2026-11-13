@@ -1,0 +1,3 @@
+"0","cv_rates <- oj_cv$dev / nrow(train)"
+"0","cv_table <- data.frame(size=oj_cv$size, cv_error_count=oj_cv$dev, cv_error_rate=cv_rates)"
+"0","cv_table"

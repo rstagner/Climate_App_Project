@@ -1,0 +1,5 @@
+"0","set.seed(427627)"
+"0","Z <- sample(1:nrow(OJ), 800)"
+"0","train <- OJ[Z, ]"
+"0","test <- OJ[-Z, ]"
+"0","head(OJ)"

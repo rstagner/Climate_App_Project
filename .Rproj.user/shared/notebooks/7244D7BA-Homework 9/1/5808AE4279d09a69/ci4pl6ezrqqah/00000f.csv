@@ -1,0 +1,32 @@
+"0","summary(oj_tree)"
+"1","
+Classification tree:
+"
+"1","tree(formula = Purchase ~ ., data = train)
+"
+"1","Variables actually used in tree construction:
+"
+"1","[1]"
+"1"," ""LoyalCH""      "
+"1"," ""PriceDiff""    "
+"1"," ""ListPriceDiff"""
+"1","
+"
+"1","Number of terminal nodes:  6 
+"
+"1","Residual mean deviance:  0.763 = 605.8 / 794 
+"
+"1","Misclassification error rate:"
+"1"," "
+"1","0.1775"
+"1"," "
+"1","="
+"1"," "
+"1","142"
+"1"," "
+"1","/"
+"1"," "
+"1","800"
+"1"," "
+"1","
+"

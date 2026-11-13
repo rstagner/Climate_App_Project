@@ -1,0 +1,6 @@
+"0","# Question 1(b): Predictor Space"
+"0",""
+"0","plot(NA, xlim = c(-2, 3), ylim = c(0, 3),"
+"0","     xlab = ""X1"", ylab = ""X2"","
+"0","     main = ""Question 1(b): Predictor Space"","
+"0","     xaxs = ""i"", yaxs = ""i"")"
