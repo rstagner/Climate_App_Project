@@ -2,7 +2,7 @@ library(tidyverse)
 
 #read Gazetteer Data for urban areas
 
-urban_areas <- read_delim(
+clean_urban_areas <- read_delim(
                           "../data_raw/2026_Gaz_ua_national.txt",
                           delim = "|",
                           col_name = TRUE,
@@ -28,4 +28,10 @@ urban_areas <- read_delim(
   #remove extra characters in city and state
   mutate(city = str_trim(str_remove(city, "--.*|/.*|\\(.*")),
          state = str_remove(state, "--.*")
-         )
+         ) |> 
+  #get rid of anything not in the US
+  filter(state %in% c(state.abb, "DC"))
+
+#confirm that it's now 50 states & DC
+nrow(urban_areas)
+urban_areas |> count(state) |> print(n = Inf)
