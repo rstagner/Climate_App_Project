@@ -26,5 +26,3 @@ writeLines(resp_body_string(resp), out_file)
 raw <- jsonlite::fromJSON(out_file)
 dim(raw)
 head(raw)
-
-
