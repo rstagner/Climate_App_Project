@@ -14,3 +14,6 @@ ua_pop_clean <- ua_pop |>
          population = as.numeric(population))
 
 glimpse(ua_pop_clean)
+
+#save as rds file in prep for merging
+saveRDS(ua_pop_clean, "ua_pop_clean.rds")
