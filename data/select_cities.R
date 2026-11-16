@@ -28,3 +28,5 @@ top_cities |> count(region)
 
 #save RDS file
 saveRDS(top_cities, "top_cities.rds")
+
+write_csv(top_cities, "top_cities.csv")
