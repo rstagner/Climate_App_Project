@@ -7,7 +7,7 @@ library(bslib)
 # starting to update app with basic layout and themes, will continue to add to this
 
 ui <- navbarPage(
-  title = "Local Climate Explorer", #name of the app
+  title = "U.S.Cities Climate Explorer", #name of the app
   position = "static-top", #keeps it at the top of the window
   collapsible = TRUE, #will get smaller if the screen is smaller
   fluid = TRUE, #keeps it proportional to the size of the window
@@ -27,7 +27,7 @@ ui <- navbarPage(
                layout_column_wrap(
                  width = "220px", 
                  card(class = "bg-light", card_body(
-                   strong("Is my city warming?"),
+                   strong("Is my city getting warmer?"),
                    p(class = "text-muted small mb-0", "Explore Tab, then Statistics > Trends")
                  )),
                  card(class = "bg-light", card_body(
@@ -53,18 +53,19 @@ ui <- navbarPage(
              sidebarPanel(
                h4("Choose your Data"),
                       p(class = "text-mut4ed small mb-0", "Tab layout and controls: Role 3"),
-               selectInput("cities", strong("Cities"), choices = NULL, multiple = TRUE), #multple cities or just 1?
+               selectInput("cities", strong("Cities"), choices = NULL, multiple = TRUE), #multiple cities or just 1?
                radioButtons("source", strong("Data source"), 
                             choices = c("NASA POWER (satellite)", "NOAA weather station", "Both, overlaid")
                             ),
                selectInput("variable", strong("Variable"),
-                           choices = c("Mean temperature", "Max temperature",
-                                       "Min temperature", "Precipitation")
+                           choices = c("Mean temperature (°C)", "Max temperature (°C)",
+                                       "Min temperature (°C)", "Precipitation (mm)")
                            ),
                dateRangeInput("dates", strong("Date range"),
                               start = "1990-01-01", #start of data
                               end = "2026-10-25" #change to whatever our end date is
-                           )
+                           ),
+               actionButton("button", "Submit")
                
              ),
              mainPanel(
