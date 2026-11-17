@@ -132,5 +132,16 @@ city_stations <- city_stations |>
          station_id, station_name, station_state,
          station_lat, station_long, dist_km, is_wban)
 
+#rename columms to match Brook's files 
+city_stations <- city_stations |> 
+  select(REGION = region, 
+         CITY = city, 
+         STATE = state,
+         LAT = lat, LON = long, 
+         GEOID,
+         POP = population,
+         station_info_id = station_id,
+         station_name, station_state, station_lat, station_long, dist_km, is_wban)
+
 saveRDS(city_stations, "data/city_stations.rds")
 write_csv(city_stations, "data/city_stations.csv")
