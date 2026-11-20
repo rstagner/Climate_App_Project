@@ -107,3 +107,77 @@ fetch_nasa_power_prelim <- function(lat, lon, geoid, geoid_cls, city, state, reg
 }
 
 safe_fetch_prelim <- safely(fetch_nasa_power_prelim, otherwise = NULL)
+
+# Run across selected cities using a single pull_date
+pull_date  <- Sys.Date()
+city_rows  <- split(pull_stations, seq_len(nrow(pull_stations)))
+names(city_rows) <- pull_stations$city_key
+
+results <- map(city_rows, function(row) {
+  safe_fetch_prelim(
+    lat             = row$LAT[[1]],
+    lon             = row$LON[[1]],
+    geoid           = row$GEOID[[1]],
+    geoid_cls       = geoid_class,
+    city            = row$CITY[[1]],
+    state           = row$STATE[[1]],
+    region          = row$REGION[[1]],
+    station_info_id = row$station_info_id[[1]],
+    start           = start_date,
+    end             = end_date,
+    comm            = community,
+    pars            = parameters,
+    pull_date       = pull_date,
+    pause           = pause_sec
+  )
+})
+
+raw_list  <- map(results, "result")
+err_list  <- map(results, "error")
+succeeded <- names(raw_list)[!map_lgl(raw_list, is.null)]
+failed    <- names(raw_list)[map_lgl(raw_list, is.null)]
+
+message(sprintf(
+  "[NASA POWER Pull] Date: %s | Succeeded: %d / %d cities | Failed: %d",
+  as.character(pull_date), length(succeeded), nrow(pull_stations), length(failed)
+))
+
+if (length(failed) > 0) {
+  message("[Warning] Failed cities:")
+  for (nm in failed) {
+    err_msg <- if (!is.null(err_list[[nm]])) conditionMessage(err_list[[nm]]) else "Unknown error"
+    message("  - ", nm, ": ", err_msg)
+  }
+}
+
+stopifnot(length(succeeded) > 0)
+
+# Save single dated .rds file in data_raw/
+dir.create("data_raw", showWarnings = FALSE, recursive = TRUE)
+out_path <- sprintf("data_raw/nasa_power_raw_%s.rds", pull_date)
+
+combined_tbl <- bind_rows(compact(raw_list)) |>
+  mutate(GEOID = cast_to_class(GEOID, geoid_class))
+
+nasa_power_raw <- list(
+  pulled_date = pull_date,
+  pulled_at   = Sys.time(),
+  start_date  = start_date,
+  end_date    = end_date,
+  community   = community,
+  parameters  = parameters,
+  geoid_class = geoid_class,
+  by_city     = compact(raw_list),
+  combined    = combined_tbl
+)
+
+saveRDS(nasa_power_raw, out_path)
+
+size_mb    <- file.info(out_path)$size / (1024 * 1024)
+total_rows <- nrow(nasa_power_raw$combined)
+
+message(sprintf("[Success] Saved RDS output to '%s'", out_path))
+message(sprintf("[File Info] Size: %.2f MB | Total Rows: %s",
+                size_mb, format(total_rows, big.mark = ",")))
+
+
