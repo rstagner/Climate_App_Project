@@ -56,3 +56,54 @@ pull_stations <- if (!is.null(max_cities)) {
 } else {
   city_stations
 }
+
+# Pull daily point data for one city and shape into a preliminary tibble
+fetch_nasa_power_prelim <- function(lat, lon, geoid, geoid_cls, city, state, region,
+                                    station_info_id, start, end, comm, pars,
+                                    pull_date, pause = 0.25) {
+  url <- "https://power.larc.nasa.gov/api/temporal/daily/point"
+  
+  req <- request(url) |>
+    req_url_query(
+      parameters = paste(pars, collapse = ","),
+      community  = comm,
+      latitude   = round(lat, 4),
+      longitude  = round(lon, 4),
+      start      = start,
+      end        = end,
+      format     = "JSON"
+    ) |>
+    req_timeout(30) |>
+    req_retry(max_tries = 3, backoff = ~ 2)
+  
+  resp <- req_perform(req)
+  body <- resp_body_json(resp, simplifyVector = TRUE)
+  
+  param_list <- body$properties$parameter
+  if (is.null(param_list) || length(param_list) == 0) {
+    stop("API response missing properties$parameter")
+  }
+  
+  dates <- names(param_list[[1]])
+  
+  df_out <- tibble(
+    GEOID           = cast_to_class(geoid, geoid_cls),
+    CITY            = as.character(city),
+    STATE           = as.character(state),
+    REGION          = as.character(region),
+    station_info_id = station_info_id,
+    query_lat       = as.numeric(lat),
+    query_lon       = as.numeric(lon),
+    pulled_date     = pull_date,
+    DATE_YYYYMMDD   = dates
+  )
+  
+  for (p in names(param_list)) {
+    df_out[[p]] <- as.numeric(param_list[[p]][dates])
+  }
+  
+  Sys.sleep(pause)
+  df_out
+}
+
+safe_fetch_prelim <- safely(fetch_nasa_power_prelim, otherwise = NULL)
