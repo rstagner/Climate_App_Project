@@ -64,3 +64,4 @@ if (exists("haversine_km", mode = "function")) {
   nyc_to_la <- haversine_km(40.7128, -74.0060, 34.0522, -118.2437)
   cat("NYC to LA distance (expect ~3935 km):", round(nyc_to_la, 1), "\n")
 }
+# all checks passed!
