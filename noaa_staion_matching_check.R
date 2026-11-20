@@ -8,21 +8,41 @@ stations_csv <- read_csv("data/city_stations.csv", show_col_types = FALSE) |> as
 
 glimpse(stations_rds)
 
-# Check 1: 48 rows, one per city, no NAs in key fields
+# Check 1: 48 rows, one per city, no NAs in key fields------
 cat("Rows in RDS / CSV (expect 48):", nrow(stations_rds), nrow(stations_csv), "\n")
 stopifnot(nrow(stations_rds) == 48, nrow(stations_csv) == 48)
 
-# Check 2: No station assigned to more than one city
-# (Adjust column name if the PR uses a slightly different station ID column name)
-station_cols <- intersect(names(stations_rds), c("station_id", "STATION_ID", "id", "ID", "station", "STATION"))
-stopifnot(length(station_cols) > 0)
+# Check 2: Verify every city has its own distinct NOAA station (no shared station IDs)
+# - Confirms the PR's design rule that all 48 cities match to different stations
+# - Prevents silent collisions/overwrites in downstream NOAA pulls, joins, or city summaries
+# - Catches distance/tie-breaker or join bugs before starting NASA POWER/NOAA branches
+
+station_cols <- intersect(
+  names(stations_rds),
+  c("station_info_id", "STATION_INFO_ID", "station_id", "STATION_ID", "ghcnd_id", "GHCND_ID", "station", "STATION", "id", "ID")
+)
+
+if (length(station_cols) == 0) {
+  stop(
+    "Check 2 failed: No station ID column found. Available columns: ",
+    paste(names(stations_rds), collapse = ", ")
+  )
+}
+
 st_col <- station_cols[1]
+cat("Check 2 using station column:", st_col, "\n")
 
 dup_stations <- stations_rds |>
-  count(.data[[st_col]]) |>
-  filter(n > 1)
+  dplyr::count(.data[[st_col]], name = "city_count") |>
+  dplyr::filter(city_count > 1)
+
 cat("Duplicate station assignments (expect 0):", nrow(dup_stations), "\n")
-stopifnot(nrow(dup_stations) == 0)
+
+if (nrow(dup_stations) > 0) {
+  print(dup_stations)
+  print(stations_rds |> dplyr::filter(.data[[st_col]] %in% dup_stations[[st_col]]))
+  stop("Check 2 failed: One or more NOAA station IDs are assigned to multiple cities.")
+}
 
 # Check 3: Every match is within 25 km
 dist_cols <- intersect(names(stations_rds), c("distance_km", "dist_km", "distance", "DISTANCE_KM", "DIST_KM"))
