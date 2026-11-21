@@ -31,3 +31,22 @@ stopifnot(length(raw_files) > 0)
 latest_raw_path <- sort(raw_files, decreasing = TRUE)[1]
 raw_obj         <- readRDS(latest_raw_path)
 stopifnot(is.list(raw_obj), is.data.frame(raw_obj$combined))
+
+# Read the current 48-city list and carry GEOID through 
+
+stations_path <- "data/city_stations.rds"
+stopifnot(file.exists(stations_path))
+
+city_stations <- readRDS(stations_path)
+geoid_class   <- class(city_stations$GEOID)[1]
+stopifnot(nrow(city_stations) == 48)
+
+stations_ref <- city_stations |>
+  mutate(
+    GEOID      = cast_to_class(GEOID, geoid_class),
+    ref_city   = as.character(CITY),
+    ref_state  = as.character(STATE),
+    ref_lat_r4 = round(as.numeric(LAT), 4),
+    ref_lon_r4 = round(as.numeric(LON), 4)
+  ) |>
+  select(GEOID, ref_city, ref_state, ref_lat_r4, ref_lon_r4)
