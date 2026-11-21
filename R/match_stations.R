@@ -4,12 +4,12 @@ library(tidyverse)
 stations <- read_fwf(
   "data_raw/ghcnd-stations_2026-11-16.txt",
   col_positions = fwf_cols(
-  station_id = c(1, 11),
-  lat = c(13, 20),
-  long = c(22,30),
-  elev = c(32, 37),
-  state = c(39,40),
-  name = c(42, 71)
+    station_id = c(1, 11),
+    lat = c(13, 20),
+    long = c(22, 30),
+    elev = c(32, 37),
+    state = c(39, 40),
+    name = c(42, 71)
   )
 )
 
@@ -73,11 +73,11 @@ haversine_km <- function(lat1, long1, lat2, long2) {
   dlat <-(lat2 - lat1) * to_rad
   dlong <- (long2 - long1) * to_rad
   a <- sin(dlat / 2)^2 +
-       cos(lat1 * to_rad) * cos(lat2 * to_rad) * sin(dlong / 2)^2
+    cos(lat1 * to_rad) * cos(lat2 * to_rad) * sin(dlong / 2)^2
   2 * 6371 * asin(sqrt(a)) #6371 is the Earth's radius
 }
 
-#test the function for New York to LA should be ~3940 km
+#test the function for New York to LA should be ~3935 km
 haversine_km(40.71, -74.01, 34.05, -118.24)
 
 #rename columns before join
@@ -93,15 +93,24 @@ station_lookup <- us_stations |>
 #load the 48 cities
 top_cities <- readRDS("data/top_cities.rds") 
 
-#pair every city with every station, measure, and keep the nearest station
-city_stations <- top_cities |> 
+#pair every city with every station and keep all stations within 25 km
+candidates <- top_cities |>
   cross_join(station_lookup) |>  #every city-station pair
   mutate(
-    dist_km = haversine_km(lat, long, station_lat, station_long)) |> 
+    dist_km = haversine_km(lat, long, station_lat, station_long)) |>
   filter(dist_km <= 25) |> #only stations within 25 km
-  mutate(is_wban = str_starts(station_id, "USW")) |> #flag Weather Service Stations
-  arrange(desc(is_wban), dist_km) |> #use USW first, then nearest
-  slice_head(n = 1, by = GEOID) #nearest station per city
+  mutate(is_wban = str_starts(station_id, "USW")) #flag Weather Service Stations
+
+#save every candidate so replacement stations can be checked later
+saveRDS(candidates, "data/station_candidates.rds")
+
+#check work: how many candidate stations each city has
+candidates |> count(city) |> arrange(n) |> print(n = Inf)
+
+#pick the best station per city: USW first, then nearest
+city_stations <- candidates |>
+  arrange(desc(is_wban), dist_km) |>
+  slice_head(n = 1, by = GEOID)
 
 #check work
 nrow(city_stations) #should be 48 for 48 cities
