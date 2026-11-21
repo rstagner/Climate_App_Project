@@ -100,7 +100,7 @@ plot_boxplot <- ggplot(
 print(plot_boxplot)
 
 # =========================================================================
-# 5. ANNUAL TEMPERATURE TREND PLOT (MEAN, MAX, MIN + LINEAR TREND)
+# 5. ANNUAL TEMPERATURE TREND (MEAN, MAX, MIN)
 # =========================================================================
 nasa_annual_trends <- nasa_filtered |>
   group_by(GEOID, city_label, year) |>
