@@ -1,7 +1,7 @@
 library(tidyverse)
 
-urban_areas <- readRDS("urban_areas_clean.rds")
-ua_pop <- readRDS("ua_pop_clean.rds")
+urban_areas <- readRDS("data/urban_areas_clean.rds")
+ua_pop <- readRDS("data/ua_pop_clean.rds")
 
 #join files into one
 urban_join <- left_join(urban_areas, ua_pop, by = "GEOID")
@@ -27,6 +27,6 @@ top_cities <- urban_join |>
 top_cities |> count(region)   
 
 #save RDS file
-saveRDS(top_cities, "top_cities.rds")
+saveRDS(top_cities, "data/top_cities.rds")
 
-write_csv(top_cities, "top_cities.csv")
+write_csv(top_cities, "data/top_cities.csv")
