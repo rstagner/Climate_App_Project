@@ -168,3 +168,13 @@ na_rows |>
 # Note: NAs starting around 2026-11-17 come from recent dates at the tail of the
 # pull where NASA POWER values aren't finalized yet (144 rows across mean/max/min).
 # Keep them as NA rather than dropping rows or leaving -999s in the data.
+
+# Save the clean table to data/ and print how big the file is and how many rows
+# it has before anything gets pushed or shared
+dir.create("data", showWarnings = FALSE, recursive = TRUE)
+out_tidy_path <- "data/nasa_power_tidy.rds"
+saveRDS(nasa_tidy, out_tidy_path)
+
+size_mb <- file.info(out_tidy_path)$size / (1024 * 1024)
+message(sprintf("[Success] Saved '%s' (%.2f MB | %s rows)",
+                out_tidy_path, size_mb, format(nrow(nasa_tidy), big.mark = ",")))
