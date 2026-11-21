@@ -43,3 +43,33 @@ if (is.null(end_date)) {
 nasa_filtered <- nasa_tidy |>
   filter(date >= start_date, date <= end_date) |>
   mutate(selected_temp = .data[[target_col]])
+
+# =========================================================================
+# 3. SUMMARY TABLE (BY CITY)
+# =========================================================================
+nasa_summary <- nasa_filtered |>
+  group_by(GEOID, city_label) |>
+  summarise(
+    valid_days  = sum(!is.na(selected_temp)),
+    min_temp    = suppressWarnings(min(selected_temp, na.rm = TRUE)),
+    median_temp = median(selected_temp, na.rm = TRUE),
+    mean_temp   = mean(selected_temp, na.rm = TRUE),
+    max_temp    = suppressWarnings(max(selected_temp, na.rm = TRUE)),
+    sd_temp     = sd(selected_temp, na.rm = TRUE),
+    pct_na      = round(mean(is.na(selected_temp)) * 100, 2),
+    .groups     = "drop"
+  ) |>
+  mutate(
+    min_temp    = ifelse(is.infinite(min_temp), NA_real_, round(min_temp, 2)),
+    median_temp = round(median_temp, 2),
+    mean_temp   = round(mean_temp, 2),
+    max_temp    = ifelse(is.infinite(max_temp), NA_real_, round(max_temp, 2)),
+    sd_temp     = round(sd_temp, 2)
+  )
+
+cat(sprintf(
+  "\n--- Summary for '%s' (%s to %s) ---\n",
+  target_col, start_date, end_date
+))
+print(nasa_summary, n = Inf)
+
