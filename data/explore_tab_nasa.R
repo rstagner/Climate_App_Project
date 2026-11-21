@@ -73,3 +73,29 @@ cat(sprintf(
 ))
 print(nasa_summary, n = Inf)
 
+# =========================================================================
+# 4. BOXPLOT BY CITY
+# =========================================================================
+plot_boxplot <- ggplot(
+  nasa_filtered,
+  aes(
+    x    = reorder(city_label, selected_temp, FUN = median, na.rm = TRUE),
+    y    = selected_temp,
+    fill = city_label
+  )
+) +
+  geom_boxplot(alpha = 0.85, outlier.alpha = 0.2, show.legend = FALSE, na.rm = TRUE) +
+  labs(
+    title    = sprintf("Daily %s Distribution by City", target_col),
+    subtitle = sprintf("NASA POWER (%s to %s), ordered by median", start_date, end_date),
+    x        = "City (ordered by median)",
+    y        = sprintf("%s (°C)", target_col)
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    plot.title  = element_text(face = "bold"),
+    axis.text.x = element_text(angle = 65, hjust = 1, size = 8)
+  )
+
+print(plot_boxplot)
+
