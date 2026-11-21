@@ -50,3 +50,41 @@ stations_ref <- city_stations |>
     ref_lon_r4 = round(as.numeric(LON), 4)
   ) |>
   select(GEOID, ref_city, ref_state, ref_lat_r4, ref_lon_r4)
+
+# check if pull matches the current city list and locations
+checked_tbl <- as_tibble(raw_obj$combined) |>
+  mutate(GEOID = cast_to_class(GEOID, geoid_class)) |>
+  left_join(stations_ref, by = "GEOID")
+
+unmatched_geoids <- checked_tbl |>
+  filter(is.na(ref_city)) |>
+  distinct(GEOID) |>
+  pull(GEOID)
+
+if (length(unmatched_geoids) > 0) {
+  stop("Raw file has IDs not in data/city_stations.rds (old pull?): ",
+       paste(as.character(unmatched_geoids), collapse = ", "))
+}
+
+if (all(c("query_lat", "query_lon") %in% names(checked_tbl))) {
+  coord_mismatches <- checked_tbl |>
+    mutate(
+      raw_lat_r4 = round(as.numeric(query_lat), 4),
+      raw_lon_r4 = round(as.numeric(query_lon), 4)
+    ) |>
+    filter(raw_lat_r4 != ref_lat_r4 | raw_lon_r4 != ref_lon_r4) |>
+    distinct(GEOID, ref_city, ref_state)
+  
+  if (nrow(coord_mismatches) > 0) {
+    warning("Locations don't match data/city_stations.rds for: ",
+            paste(paste(coord_mismatches$ref_city, coord_mismatches$ref_state, sep = ", "), collapse = "; "))
+  }
+}
+
+pull_dt <- if (!is.null(raw_obj$pulled_date)) {
+  as.Date(raw_obj$pulled_date)
+} else if ("pulled_date" %in% names(checked_tbl)) {
+  as.Date(checked_tbl$pulled_date[[1]])
+} else {
+  Sys.Date()
+}
