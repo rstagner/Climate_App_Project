@@ -126,3 +126,26 @@ nasa_tidy <- checked_tbl |>
     pulled_date
   ) |>
   arrange(GEOID, date)
+
+# Check that dates worked, no city-day is doubled up, and print a quick summary
+# of how many cities are there and how many missing values were swapped
+stopifnot(
+  !anyNA(nasa_tidy$date),
+  nrow(nasa_tidy) == nrow(distinct(nasa_tidy, GEOID, date))
+)
+
+n_cities_present <- n_distinct(nasa_tidy$GEOID)
+missing_cities   <- setdiff(stations_ref$GEOID, unique(nasa_tidy$GEOID))
+
+if (length(missing_cities) > 0) {
+  message("[Warning] Missing cities (", length(missing_cities), " of 48): ",
+          paste(as.character(missing_cities), collapse = ", "))
+}
+
+na_summary <- nasa_tidy |>
+  summarise(
+    na_mean = sum(is.na(nasa_mean)),
+    na_max  = sum(is.na(nasa_max)),
+    na_min  = sum(is.na(nasa_min))
+  )
+
