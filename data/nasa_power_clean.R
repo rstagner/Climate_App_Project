@@ -24,7 +24,7 @@ cast_to_class <- function(x, target_class) {
   }
 }
 
-# Pick the newest raw file on its own instead of typing a date by hand
+# Pick the newest raw file on its own 
 raw_files <- list.files("data_raw", pattern = "^nasa_power_raw_.*\\.rds$", full.names = TRUE)
 stopifnot(length(raw_files) > 0)
 
@@ -88,3 +88,41 @@ pull_dt <- if (!is.null(raw_obj$pulled_date)) {
 } else {
   Sys.Date()
 }
+
+# Turn text dates into real dates, pull out year and month, and swap -999
+# missing-data codes to NA
+
+# Helper to turn raw NASA POWER temperature columns (<= -999 is missing) into clean numeric values
+clean_nasa_temp <- function(x) {
+  val <- suppressWarnings(as.numeric(x))
+  ifelse(!is.na(val) & val <= -999, NA_real_, val)
+}
+
+# Map T2M -> nasa_mean, T2M_MAX -> nasa_max, and T2M_MIN -> nasa_min while keeping
+# GEOID matched to city_stations 
+nasa_tidy <- checked_tbl |>
+  mutate(
+    GEOID     = cast_to_class(GEOID, geoid_class),
+    city      = if ("CITY" %in% names(checked_tbl)) as.character(CITY) else ref_city,
+    state     = if ("STATE" %in% names(checked_tbl)) as.character(STATE) else ref_state,
+    date      = as.Date(as.character(DATE_YYYYMMDD), format = "%Y%m%d"),
+    year      = as.integer(format(date, "%Y")),
+    month     = as.integer(format(date, "%m")),
+    nasa_mean = if ("T2M" %in% names(checked_tbl)) clean_nasa_temp(T2M) else NA_real_,
+    nasa_max  = if ("T2M_MAX" %in% names(checked_tbl)) clean_nasa_temp(T2M_MAX) else NA_real_,
+    nasa_min  = if ("T2M_MIN" %in% names(checked_tbl)) clean_nasa_temp(T2M_MIN) else NA_real_,
+    pulled_date = pull_dt
+  ) |>
+  select(
+    GEOID,
+    city,
+    state,
+    date,
+    year,
+    month,
+    nasa_mean,
+    nasa_max,
+    nasa_min,
+    pulled_date
+  ) |>
+  arrange(GEOID, date)
