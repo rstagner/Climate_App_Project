@@ -99,3 +99,27 @@ plot_boxplot <- ggplot(
 
 print(plot_boxplot)
 
+# =========================================================================
+# 5. ANNUAL TEMPERATURE TREND PLOT (MEAN, MAX, MIN + LINEAR TREND)
+# =========================================================================
+nasa_annual_trends <- nasa_filtered |>
+  group_by(GEOID, city_label, year) |>
+  summarise(
+    `Annual Max`  = suppressWarnings(max(nasa_max, na.rm = TRUE)),
+    `Annual Mean` = mean(nasa_mean, na.rm = TRUE),
+    `Annual Min`  = suppressWarnings(min(nasa_min, na.rm = TRUE)),
+    .groups       = "drop"
+  ) |>
+  mutate(
+    `Annual Max` = ifelse(is.infinite(`Annual Max`), NA_real_, `Annual Max`),
+    `Annual Min` = ifelse(is.infinite(`Annual Min`), NA_real_, `Annual Min`)
+  ) |>
+  pivot_longer(
+    cols      = c(`Annual Max`, `Annual Mean`, `Annual Min`),
+    names_to  = "metric",
+    values_to = "temp_c"
+  ) |>
+  mutate(
+    metric = factor(metric, levels = c("Annual Max", "Annual Mean", "Annual Min"))
+  )
+
