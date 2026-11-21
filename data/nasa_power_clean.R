@@ -149,3 +149,22 @@ na_summary <- nasa_tidy |>
     na_min  = sum(is.na(nasa_min))
   )
 
+# check why na_summmary returned 144/144/144 instead of 0/0/0
+na_rows <- nasa_tidy |>
+  filter(is.na(nasa_mean) | is.na(nasa_max) | is.na(nasa_min))
+
+# Check which cities have NAs
+na_rows |>
+  count(GEOID, city, state, sort = TRUE)
+
+# Check which years/dates they fall in
+na_rows |>
+  count(year, sort = TRUE)
+
+na_rows |>
+  select(GEOID, city, state, date, nasa_mean, nasa_max, nasa_min) |>
+  head(10)
+
+# Note: NAs starting around 2026-11-17 come from recent dates at the tail of the
+# pull where NASA POWER values aren't finalized yet (144 rows across mean/max/min).
+# Keep them as NA rather than dropping rows or leaving -999s in the data.
