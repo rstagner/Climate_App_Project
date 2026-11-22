@@ -41,5 +41,3 @@ candidate_completeness |>
   summarise(any_pass = any(meets_90), .by = c(region, city)) |> 
   filter(!any_pass)
 
-
-
