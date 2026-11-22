@@ -30,3 +30,6 @@ noaa_tidy |>
   pivot_wider(names_from = CITY, values_from = days) |> 
   arrange(year) |> 
   print(n = Inf)
+
+saveRDS(completeness, "data/noaa_completeness.rds")
+write_csv(completeness, "data/noaa_completeness.csv")
