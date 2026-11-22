@@ -3,6 +3,7 @@
 .RData
 .Ruserdata
 .Rproj.user/
+.Renviorn
 
 #OS files
 .DS_Store

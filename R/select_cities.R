@@ -1,7 +1,7 @@
 library(tidyverse)
 
-urban_areas <- readRDS("urban_areas_clean.rds")
-ua_pop <- readRDS("ua_pop_clean.rds")
+urban_areas <- readRDS("data/urban_areas_clean.rds")
+ua_pop <- readRDS("data/ua_pop_clean.rds")
 
 #join files into one
 urban_join <- left_join(urban_areas, ua_pop, by = "GEOID")
@@ -19,14 +19,18 @@ regions |> count(region)
 #join the two to include regions
 urban_join <- left_join(urban_join, regions, by = "state")
 
-#select the top 12 most populous cities in each census region
-top_cities <- urban_join |> 
-  slice_max(population, n = 12, by = region)
+#select the top 15 most populous cities in each census region
+city_pool <- urban_join |> 
+  slice_max(population, n = 15, by = region)
 
 #check work
-top_cities |> count(region)   
+nrow(city_pool) #should be 60
+city_pool|> count(region)   #15 in each region
+city_pool |> 
+  filter(!city %in% readRDS("data/top_cities.rds")$city) |> 
+  select(region, city, state, population) #12 new spare candidates
 
 #save RDS file
-saveRDS(top_cities, "top_cities.rds")
+saveRDS(city_pool, "data/city_pool.rds")
 
-write_csv(top_cities, "top_cities.csv")
+write_csv(city_pool, "data/city_pool.csv")

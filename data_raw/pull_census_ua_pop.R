@@ -17,7 +17,7 @@ resp <- request(url) |>
   req_perform()
 
 #save the response with the date
-out_file <- paste0("../data_raw/census_ua_pop_", Sys.Date(), ".json")
+out_file <- paste0("data_raw/census_ua_pop_", Sys.Date(), ".json")
 
 #save the response in the file
 writeLines(resp_body_string(resp), out_file)
