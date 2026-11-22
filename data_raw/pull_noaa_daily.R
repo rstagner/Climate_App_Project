@@ -1,7 +1,9 @@
 library(tidyverse)
 
-#load the 48 matched stations
-city_stations <- readRDS("data/city_stations.rds")
+#load the 60 matched stations with 25 km of the 60 pool cities
+candidates <- readRDS("data/station_candidates.rds")
+station_ids <- unique(candidates$station_id)
+length(station_ids) #should be 141
 
 #column names for NOAA data from documentation
 noaa_cols <- c("station_id", "date", "element", "value", 
@@ -23,17 +25,23 @@ fetch_station <- function(id) {
   )
 }
 
-#download all 48
-noaa_list <- map(city_stations$station_info_id, fetch_station)
-names(noaa_list) <- city_stations$station_info_id
+#download every candidate station
+noaa_list <- map(station_ids, fetch_station)
+names(noaa_list) <- station_ids
 
 #report any failures
 failed <- names(noaa_list)[map_lgl(noaa_list, is.null)]
 if (length(failed) >0) message("No data for: ", paste(failed, collapse = ", "))
 
-#combine and save with the download date
+#combine all stations into one table
 noaa_raw <- list_rbind(noaa_list)
-out_file <- paste0("data_raw/noaa_raw_", Sys.Date(), ".rds")
-saveRDS(noaa_raw, out_file)
+
+#check work
+n_distinct(noaa_raw$station_id) #should be 141, minus failures
+noaa_raw |> count(element)
+
+#save with download date
+out_file <- paste0("data_raw/noaa_raw_candidates_", Sys.Date(), ".rds")
+saveRDS(noaa_raw, out_file, compress = "xz")
 
 file.size(out_file) / 1e6 #size in MB
