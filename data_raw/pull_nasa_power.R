@@ -180,3 +180,111 @@ message(sprintf("[Success] Saved RDS output to '%s'", out_path))
 message(sprintf("[File Info] Size: %.2f MB | Total Rows: %s",
                 size_mb, format(total_rows, big.mark = ",")))
 
+# compare old vs new raw nasa rds to check changes
+
+nasa_old_raw <- readRDS("data_raw/nasa_power_raw_2026-11-19.rds")
+nasa_new_raw <- readRDS("data_raw/nasa_power_raw_2026-11-22.rds")
+
+as_tidy_df <- function(x) {
+  if (is.data.frame(x)) {
+    return(x)
+  }
+  if (is.list(x)) {
+    # Keep data.frame elements; if a city name is stored in names(x), attach it
+    dfs <- lapply(seq_along(x), function(i) {
+      el <- x[[i]]
+      if (is.data.frame(el)) {
+        if (!is.null(names(x)) && nzchar(names(x)[i]) && !("city" %in% names(el)) && !("CITY" %in% names(el))) {
+          el$city <- names(x)[i]
+        }
+        return(el)
+      }
+      NULL
+    })
+    dfs <- Filter(Negate(is.null), dfs)
+    if (length(dfs) > 0) {
+      return(bind_rows(dfs))
+    }
+  }
+  stop("Could not coerce object to a data.frame — inspect str(x) to see its structure.")
+}
+
+nasa_old <- as_tidy_df(nasa_old_raw)
+nasa_new <- as_tidy_df(nasa_new_raw)
+
+city_col_old <- intersect(c("CITY", "city", "urban_area", "name"), names(nasa_old))[1]
+city_col_new <- intersect(c("CITY", "city", "urban_area", "name"), names(nasa_new))[1]
+
+if (is.na(city_col_old) || is.na(city_col_new)) {
+  cat("Available columns in nasa_old:", paste(names(nasa_old), collapse = ", "), "\n")
+  cat("Available columns in nasa_new:", paste(names(nasa_new), collapse = ", "), "\n")
+  stop("City column not found — update the candidate column names above.")
+}
+
+meta_cols_old <- intersect(c("GEOID", "geoid", city_col_old, "STATE", "state", "REGION", "region"), names(nasa_old))
+meta_cols_new <- intersect(c("GEOID", "geoid", city_col_new, "STATE", "state", "REGION", "region"), names(nasa_new))
+
+cities_old <- nasa_old |>
+  distinct(across(all_of(meta_cols_old))) |>
+  mutate(.city_key = .data[[city_col_old]])
+
+cities_new <- nasa_new |>
+  distinct(across(all_of(meta_cols_new))) |>
+  mutate(.city_key = .data[[city_col_new]])
+
+old_names <- unique(na.omit(cities_old$.city_key))
+new_names <- unique(na.omit(cities_new$.city_key))
+
+removed_cities <- setdiff(old_names, new_names)
+added_cities   <- setdiff(new_names, old_names)
+kept_cities    <- intersect(old_names, new_names)
+
+cat("\n================================================================\n")
+cat("NASA RAW PULL CITY COMPARISON (2026-11-19 vs. 2026-11-22)\n")
+cat("================================================================\n")
+cat("Distinct cities in 2026-11-19 pull:", length(old_names), "\n")
+cat("Distinct cities in 2026-11-22 pull:", length(new_names), "\n")
+cat("Cities kept across both pulls:      ", length(kept_cities), "\n")
+cat("Removed cities (in old, not new):   ", length(removed_cities), "\n")
+cat("Added cities (in new, not old):     ", length(added_cities), "\n")
+
+cat("\n--- Removed Cities (Present in 2026-11-19, Missing in 2026-11-22) ---\n")
+if (length(removed_cities) > 0) {
+  print(
+    cities_old |>
+      filter(.city_key %in% removed_cities) |>
+      select(-.city_key),
+    n = Inf
+  )
+} else {
+  cat("None\n")
+}
+
+cat("\n--- Added / Replacement Cities (Present in 2026-11-22, Not in 2026-11-19) ---\n")
+if (length(added_cities) > 0) {
+  print(
+    cities_new |>
+      filter(.city_key %in% added_cities) |>
+      select(-.city_key),
+    n = Inf
+  )
+} else {
+  cat("None\n")
+}
+
+if (length(added_cities) > 0 && "date" %in% names(nasa_new)) {
+  cat("\n--- Row Counts & Date Coverage for Added Cities (2026-11-22 Pull) ---\n")
+  print(
+    nasa_new |>
+      filter(.data[[city_col_new]] %in% added_cities) |>
+      summarise(
+        n_rows   = n(),
+        min_date = min(as.Date(date), na.rm = TRUE),
+        max_date = max(as.Date(date), na.rm = TRUE),
+        .by = all_of(intersect(c(city_col_new, "GEOID", "geoid", "REGION", "region"), names(nasa_new)))
+      ),
+    n = Inf
+  )
+}
+
+
