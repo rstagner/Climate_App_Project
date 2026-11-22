@@ -20,13 +20,17 @@ regions |> count(region)
 urban_join <- left_join(urban_join, regions, by = "state")
 
 #select the top 12 most populous cities in each census region
-top_cities <- urban_join |> 
-  slice_max(population, n = 12, by = region)
+city_pool <- urban_join |> 
+  slice_max(population, n = 15, by = region)
 
 #check work
-top_cities |> count(region)   
+nrow(city_pool) #should be 60
+city_pool|> count(region)   #15 in each region
+city_pool |> 
+  filter(!city %in% readRDS("data/top_cities.rds")$city) |> 
+  select(region, city, state, population) #12 new spare candidates
 
 #save RDS file
-saveRDS(top_cities, "data/top_cities.rds")
+saveRDS(top_cities, "data/city_pool.rds")
 
-write_csv(top_cities, "data/top_cities.csv")
+write_csv(top_cities, "data/city_pool.csv")

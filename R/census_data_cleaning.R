@@ -1,7 +1,7 @@
 library(tidyverse)
 
 #load the raw data
-raw_file <- jsonlite::fromJSON("../data_raw/census_ua_pop_2026-11-15.json")
+raw_file <- jsonlite::fromJSON("data_raw/census_ua_pop_2026-11-15.json")
 
 colnames(raw) <- raw[1, ] #row one has column names
 
