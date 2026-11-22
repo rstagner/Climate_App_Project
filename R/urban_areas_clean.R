@@ -3,7 +3,7 @@ library(tidyverse)
 #read Gazetteer Data for urban areas
 
 clean_urban_areas <- read_delim(
-                          "../data_raw/2026_Gaz_ua_national.txt",
+                          "data_raw/2026_Gaz_ua_national.txt",
                           delim = "|",
                           col_name = TRUE,
                           col_types = cols(GEOID = col_character()),
