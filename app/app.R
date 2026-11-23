@@ -252,7 +252,103 @@ server <- function(input, output, session) {
   
   #Explore tab placeholders (replace with real outputs)
   output$map     <- renderPlot(plot.new()) #Prashant
-  output$ts_plot <- renderPlot(plot.new()) #Brook
+  # Time series Brook
+  output$ts_plot <- renderPlot({
+    validate(need(length(input$cities) > 0, "Please choose at least one city."))
+    
+    selected_cities <- as.character(input$cities[seq_len(min(length(input$cities), 4))])
+    yr_min <- min(as.integer(input$year_from), as.integer(input$year_to), na.rm = TRUE)
+    yr_max <- max(as.integer(input$year_from), as.integer(input$year_to), na.rm = TRUE)
+    
+    nasa_col <- switch(
+      input$variable,
+      "Mean temperature (°C)" = "nasa_mean",
+      "Max temperature (°C)"  = "nasa_max",
+      "Min temperature (°C)"  = "nasa_min",
+      "nasa_mean"
+    )
+    
+    noaa_col <- switch(
+      input$variable,
+      "Mean temperature (°C)" = "noaa_mean",
+      "Max temperature (°C)"  = "noaa_max",
+      "Min temperature (°C)"  = "noaa_min",
+      "noaa_mean"
+    )
+    
+    filtered_df <- climate_joined |>
+      mutate(
+        GEOID = as.character(GEOID),
+        date = as.Date(date),
+        year = as.integer(year),
+        city_label = paste0(city, ", ", state)
+      ) |>
+      filter(
+        GEOID %in% selected_cities,
+        year >= yr_min,
+        year <= yr_max
+      )
+    
+    nasa_rows <- filtered_df |>
+      filter(!is.na(.data[[nasa_col]])) |>
+      transmute(
+        GEOID,
+        city_label,
+        date,
+        year,
+        source_label = "NASA POWER (satellite)",
+        value = as.numeric(.data[[nasa_col]])
+      )
+    
+    noaa_rows <- filtered_df |>
+      filter(!is.na(.data[[noaa_col]])) |>
+      transmute(
+        GEOID,
+        city_label,
+        date,
+        year,
+        source_label = "NOAA weather station",
+        value = as.numeric(.data[[noaa_col]])
+      )
+    
+    plot_df <- switch(
+      input$source,
+      "NASA POWER (satellite)" = nasa_rows,
+      "NOAA weather station"   = noaa_rows,
+      "Both, overlaid"         = bind_rows(nasa_rows, noaa_rows),
+      nasa_rows
+    )
+    
+    validate(need(nrow(plot_df) > 0, "No non-missing temperature data for this selection."))
+    
+    if (identical(input$source, "Both, overlaid")) {
+      ggplot(plot_df, aes(x = date, y = value, color = source_label, linetype = source_label)) +
+        geom_line(linewidth = 0.45, alpha = 0.85, na.rm = TRUE) +
+        facet_wrap(~ city_label, scales = "free_y") +
+        labs(
+          title = paste0(input$variable, " — ", input$source),
+          subtitle = paste0("Years: ", min(plot_df$year), "–", max(plot_df$year)),
+          x = "Date",
+          y = input$variable,
+          color = "Source",
+          linetype = "Source"
+        ) +
+        theme_minimal(base_size = 11) +
+        theme(legend.position = "top")
+    } else {
+      ggplot(plot_df, aes(x = date, y = value, color = city_label)) +
+        geom_line(linewidth = 0.45, alpha = 0.85, na.rm = TRUE) +
+        labs(
+          title = paste0(input$variable, " — ", input$source),
+          subtitle = paste0("Years: ", min(plot_df$year), "–", max(plot_df$year)),
+          x = "Date",
+          y = input$variable,
+          color = "City"
+        ) +
+        theme_minimal(base_size = 11) +
+        theme(legend.position = "top")
+    }
+  })
   output$summary <- renderTable(data.frame(Note = "Summary table coming soon")) #Prashant
   
   #Statistics result box placeholders (each owner replaces theirs with real results)
