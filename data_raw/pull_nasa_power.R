@@ -180,7 +180,7 @@ message(sprintf("[Success] Saved RDS output to '%s'", out_path))
 message(sprintf("[File Info] Size: %.2f MB | Total Rows: %s",
                 size_mb, format(total_rows, big.mark = ",")))
 
-# compare old vs new raw nasa rds to check changes
+# compare old vs new raw nasa rds to check changes----
 
 nasa_old_raw <- readRDS("data_raw/nasa_power_raw_2026-11-19.rds")
 nasa_new_raw <- readRDS("data_raw/nasa_power_raw_2026-11-22.rds")

@@ -165,7 +165,7 @@ na_rows |>
   select(GEOID, city, state, date, nasa_mean, nasa_max, nasa_min) |>
   head(10)
 
-# Note: NAs starting around 2026-11-17 come from recent dates at the tail of the
+# Note: NAs starting around 2026-11-20 come from recent dates at the tail of the
 # pull where NASA POWER values aren't finalized yet (144 rows across mean/max/min).
 # Keep them as NA rather than dropping rows or leaving -999s in the data.
 
