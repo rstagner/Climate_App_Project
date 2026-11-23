@@ -4,12 +4,12 @@ library(tidyverse)
 stations <- read_fwf(
   "data_raw/ghcnd-stations_2026-11-16.txt",
   col_positions = fwf_cols(
-  station_id = c(1, 11),
-  lat = c(13, 20),
-  long = c(22,30),
-  elev = c(32, 37),
-  state = c(39,40),
-  name = c(42, 71)
+    station_id = c(1, 11),
+    lat = c(13, 20),
+    long = c(22, 30),
+    elev = c(32, 37),
+    state = c(39, 40),
+    name = c(42, 71)
   )
 )
 
@@ -73,11 +73,11 @@ haversine_km <- function(lat1, long1, lat2, long2) {
   dlat <-(lat2 - lat1) * to_rad
   dlong <- (long2 - long1) * to_rad
   a <- sin(dlat / 2)^2 +
-       cos(lat1 * to_rad) * cos(lat2 * to_rad) * sin(dlong / 2)^2
+    cos(lat1 * to_rad) * cos(lat2 * to_rad) * sin(dlong / 2)^2
   2 * 6371 * asin(sqrt(a)) #6371 is the Earth's radius
 }
 
-#test the function for New York to LA should be ~3940 km
+#test the function for New York to LA should be ~3935 km
 haversine_km(40.71, -74.01, 34.05, -118.24)
 
 #rename columns before join
@@ -90,58 +90,33 @@ station_lookup <- us_stations |>
     station_name = name
   )
 
-#load the 48 cities
-top_cities <- readRDS("data/top_cities.rds") 
+#load the pool of 60 cities (top 15 per region)
+city_pool <- readRDS("data/city_pool.rds") 
 
-#pair every city with every station, measure, and keep the nearest station
-city_stations <- top_cities |> 
+#pair every city with every station and keep all stations within 25 km
+candidates <- city_pool |>
   cross_join(station_lookup) |>  #every city-station pair
   mutate(
-    dist_km = haversine_km(lat, long, station_lat, station_long)) |> 
+    dist_km = haversine_km(lat, long, station_lat, station_long)) |>
   filter(dist_km <= 25) |> #only stations within 25 km
-  mutate(is_wban = str_starts(station_id, "USW")) |> #flag Weather Service Stations
-  arrange(desc(is_wban), dist_km) |> #use USW first, then nearest
-  slice_head(n = 1, by = GEOID) #nearest station per city
+  mutate(is_wban = str_starts(station_id, "USW")) #flag Weather Service Stations
 
-#check work
-nrow(city_stations) #should be 48 for 48 cities
+#save every candidate; completeness is checked in R/station_completeness.R
+#and the final station for each city is picked in R/select_final_stations.R
+saveRDS(candidates, "data/station_candidates.rds")
 
-#make sure each city has a station
-city_stations |> 
-  arrange(desc(dist_km)) |> 
-  select(city, station_name, station_state, is_wban, dist_km) |> 
-  print(n = Inf)
+#check work: how many candidate stations each city has
+candidates |> count(city) |> arrange(n) |> print(n = Inf)
 
-#make sure that no station is used twice
-city_stations |> 
-  count(station_id) |> 
-  filter(n >1) #stations used twice
+#check work: cities with at least one candidate, and stations to download
+n_distinct(candidates$GEOID)
+n_distinct(candidates$station_id)
 
-city_stations |> 
-  count(is_wban) #how many got a USW station
+#check work: pool cities with no qualifying station within 25 km
+city_pool |>
+  filter(!GEOID %in% candidates$GEOID) |>
+  select(region, city, state)
 
-#check which ones aren't USW
-city_stations |> 
-  filter(!is_wban) |> 
-  select(city, state, station_name, station_state, dist_km) |> 
-  arrange(desc(dist_km))
-
-#write to data/
-city_stations <- city_stations |> 
-  select(GEOID, city, state, region, lat, long, population,
-         station_id, station_name, station_state,
-         station_lat, station_long, dist_km, is_wban)
-
-#rename columms to match Brook's files 
-city_stations <- city_stations |> 
-  select(REGION = region, 
-         CITY = city, 
-         STATE = state,
-         LAT = lat, LON = long, 
-         GEOID,
-         POP = population,
-         station_info_id = station_id,
-         station_name, station_state, station_lat, station_long, dist_km, is_wban)
-
-saveRDS(city_stations, "data/city_stations.rds")
-write_csv(city_stations, "data/city_stations.csv")
+pool <- readRDS("data/city_pool.rds")
+nrow(pool)
+pool |> count(region)
