@@ -324,7 +324,10 @@ server <- function(input, output, session) {
     if (identical(input$source, "Both, overlaid")) {
       ggplot(plot_df, aes(x = date, y = value, color = source_label, linetype = source_label)) +
         geom_line(linewidth = 0.45, alpha = 0.85, na.rm = TRUE) +
-        facet_wrap(~ city_label, scales = "free_y") +
+        facet_wrap(~ city_label,
+          scales = "free_y") + 
+          scale_color_manual(
+            values = c("NASA POWER (satellite)" = "#D95F02", "NOAA weather station" = "#2166AC")) + 
         labs(
           title = paste0(input$variable, " — ", input$source),
           subtitle = paste0("Years: ", min(plot_df$year), "–", max(plot_df$year)),
@@ -336,8 +339,10 @@ server <- function(input, output, session) {
         theme_minimal(base_size = 11) +
         theme(legend.position = "top")
     } else {
-      ggplot(plot_df, aes(x = date, y = value, color = city_label)) +
+      ggplot(plot_df, aes(x = date, y = value, color = source_label)) +
         geom_line(linewidth = 0.45, alpha = 0.85, na.rm = TRUE) +
+          scale_color_manual(
+            values = c("NASA POWER (satellite)" = "#D95F02", "NOAA weather station" = "#2166AC")) +
         labs(
           title = paste0(input$variable, " — ", input$source),
           subtitle = paste0("Years: ", min(plot_df$year), "–", max(plot_df$year)),
