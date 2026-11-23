@@ -8,7 +8,8 @@
 dir.create("app/data", showWarnings = FALSE) #creates the folder
 
 app_files <- c(
-  "data/city_stations.rds"
+  "data/city_stations.rds",
+  "data/climate_joined.rds"
   #add the joined data and summary tables here once they are built
 )
 
