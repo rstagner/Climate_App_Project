@@ -87,3 +87,4 @@ climate |>
 
 #save file
 saveRDS(climate, "data/climate_daily.rds")
+file.size("data/climate_daily.rds") / 1e6
