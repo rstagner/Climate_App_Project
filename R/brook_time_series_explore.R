@@ -195,3 +195,15 @@ print(
     year_to = 2026
   )
 )
+
+# Test 3: Both overlaid
+print(
+  plot_explore_timeseries(
+    df = climate_joined,
+    cities = test_geoids,
+    source = "Both, overlaid",
+    variable = "Min temperature (°C)",
+    year_from = 2022,
+    year_to = 2026
+  )
+)
