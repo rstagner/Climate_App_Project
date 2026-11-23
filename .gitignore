@@ -4,6 +4,7 @@
 .Ruserdata
 .Rproj.user/
 .Renviorn
+app/app_polished.R
 
 #OS files
 .DS_Store
