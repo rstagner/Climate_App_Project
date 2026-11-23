@@ -165,7 +165,6 @@ plot_explore_timeseries <- function(
 # -------------------------------------------------------------------------
 # 4. Standalone Test Blocks
 # -------------------------------------------------------------------------
-climate_joined <- readRDS("data/climate_joined.rds")
 
 test_geoids <- if ("92242" %in% climate_joined$GEOID) {
   c("92242", "00970")
@@ -180,6 +179,18 @@ print(
     cities = test_geoids,
     source = "NASA POWER (satellite)",
     variable = "Mean temperature (°C)",
+    year_from = 2020,
+    year_to = 2026
+  )
+)
+
+# Test 2: NOAA only
+print(
+  plot_explore_timeseries(
+    df = climate_joined,
+    cities = test_geoids,
+    source = "NOAA weather station",
+    variable = "Max temperature (°C)",
     year_from = 2020,
     year_to = 2026
   )
