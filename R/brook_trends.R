@@ -167,3 +167,79 @@ if (!is.null(shapiro_out)) {
 cat("Max Cook's D:                 ", sprintf("%.3f", cooks_vals[top_cooks_idx]),
     " (", model_df$year[top_cooks_idx], ")\n\n", sep = "")
 
+# ------------------------------------------------------------------------------
+# Plain-language summary for students and teachers (tr_text)
+# ------------------------------------------------------------------------------
+ci_note <- if (ci_lo > 0) {
+  "stays above zero"
+} else if (ci_hi < 0) {
+  "stays below zero"
+} else {
+  "crosses zero"
+}
+
+sig_line <- if (p_val < 0.05) {
+  paste0(
+    "Because the 95% confidence interval (", tr_ci, " °C/decade) ", ci_note,
+    " and p is ", tr_p, " (< 0.05), the trend is statistically significant—pointing to a real average trend rather than random noise alone."
+  )
+} else {
+  paste0(
+    "Because the 95% confidence interval (", tr_ci, " °C/decade) ", ci_note,
+    " and p is ", tr_p, " (>= 0.05), the trend is not statistically significant—year-to-year swings could easily produce a slope like this with no true trend."
+  )
+}
+
+r2_pct_txt  <- sprintf("%.1f%%", r2_val * 100)
+rem_pct_txt <- sprintf("%.1f%%", (1 - r2_val) * 100)
+
+cutoff_note <- if (yr_to == 2026L && max(model_df$year) < 2026L) {
+  " (Data runs through Oct 31, 2026; incomplete 2026 is excluded.)"
+} else if (max(model_df$year) == 2026L) {
+  " (Data runs through Oct 31, 2026; complete years only.)"
+} else {
+  ""
+}
+
+main_summary <- paste0(
+  city_label_use, " (", selected_variable, ", ", selected_source, ", ",
+  min(model_df$year), "–", max(model_df$year), ") shows an average linear trend of ",
+  tr_slope, " °C per decade. ", sig_line,
+  " The straight line accounts for ", r2_pct_txt,
+  " of the year-to-year temperature variation (R² = ", tr_r2,
+  "), leaving ", rem_pct_txt, " to other weather and climate fluctuations.",
+  cutoff_note
+)
+
+dw_note_txt <- if (dw_stat >= 1.5 && dw_stat <= 2.5) {
+  "little lag-1 carry-over between adjacent years"
+} else {
+  "possible lag-1 carry-over between adjacent years"
+}
+
+spread_note_txt <- if (abs(abs_resid_cor) < 0.3) {
+  "even spread across fitted temperatures"
+} else {
+  "shifting spread across fitted temperatures"
+}
+
+norm_note_txt <- if (!is.null(shapiro_out) && shapiro_out$p.value >= 0.05) {
+  "no strong evidence against normality"
+} else if (!is.null(shapiro_out)) {
+  "some evidence against normality"
+} else {
+  "normality test skipped"
+}
+
+assumptions_summary <- paste0(
+  "Assumption checks (read with the diagnostic plots): independence (", dw_metric,
+  " -> ", dw_note_txt, "; near 2.0 is ideal), spread vs. fitted (|r| = ", abs_cor_txt,
+  " -> ", spread_note_txt, "), and normality (Shapiro-Wilk p = ", shapiro_p_txt,
+  " -> ", norm_note_txt, ")."
+)
+
+tr_text <- paste(main_summary, assumptions_summary, sep = "\n\n")
+
+cat("--- What this means (tr_text) ---\n")
+cat(tr_text, "\n\n")
+
