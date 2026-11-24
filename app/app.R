@@ -18,14 +18,13 @@ city_choices <- setNames(city_list$GEOID, city_list$label)
 data_date <- "2026-11-22"
 
 #small result box for the Statistics tabs: a label and a number filled in by the server
-result_box <- function(label, output_id) {
+result_box <- function(label, output_id) 
   card(
     card_body(
       p(class = "small text-muted mb-1", label),
       h4(class = "font-monospace mb-0", textOutput(output_id))
     )
   )
-}
 
 # starting to update app with basic layout and themes, will continue to add to this
 
