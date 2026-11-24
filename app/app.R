@@ -6,6 +6,7 @@ library(bsicons)
 # placeholder for data loading; more will be added
 city_stations <- readRDS("data/city_stations.rds")
 climate_joined <- readRDS("data/climate_joined.rds")
+climate_annual <- readRDS("data/climate_annual.rds")
 
 #build the city choices: "City, ST" labels in alphabetical order, GEOID is the value
 city_list <- city_stations |>
@@ -159,30 +160,52 @@ ui <- navbarPage(
            tabsetPanel(
              type = "pills",
              
-             # ---------------- TRENDS: Brook (Role 1) ----------------
+             # ---------------- updated_trends_UI_brook----------------
              tabPanel("Trends",
-                      #result boxes across the top
-                      layout_columns(
-                        class = "mt-3", #space below the pills
-                        result_box("Slope (°C per decade)", "tr_slope"),
-                        result_box("95% confidence interval", "tr_ci"),
-                        result_box("p-value", "tr_p"),
-                        result_box("R²", "tr_r2")
-                      ),
-                      card(card_header("Annual values with fitted trend: Brook (Role 1)"),
-                           p(class = "small text-muted mb-0", "Linear regression of temperature over time per city."),
-                           plotOutput("tr_fit", height = "300px")),
-                      layout_columns(
-                        col_widths = c(6, 6),
-                        card(card_header("Residuals vs. fitted: Brook (Role 1)"),
-                             plotOutput("tr_resid", height = "250px")),
-                        card(card_header("Normal Q-Q plot of residuals: Brook (Role 1)"),
-                             plotOutput("tr_qq", height = "250px"))
-                      ),
-                      card(card_header("What this means: Brook (Role 1)"),
-                           textOutput("tr_text"))
+                      sidebarLayout(
+                        sidebarPanel(
+                          width = 3,
+                          h4("Trend Controls"),
+                          selectInput("tr_city", strong("City"),
+                                      choices = city_choices,
+                                      selected = "92242"),
+                          radioButtons("tr_source", strong("Data source"),
+                                       choices = c("NOAA weather station", "NASA POWER (satellite)"),
+                                       selected = "NOAA weather station"),
+                          p(strong("Years")),
+                          layout_columns(
+                            numericInput("tr_year_from", "From", value = 1990, min = 1990, max = 2026),
+                            numericInput("tr_year_to", "To", value = 2026, min = 1990, max = 2026)
+                          ),
+                          p(class = "text-muted small mb-0",
+                            "Annual mean (°C), requiring >= 330 days per year.")
+                        ),
+                        mainPanel(
+                          width = 9,
+                          # result boxes across the top
+                          layout_columns(
+                            class = "mt-3",
+                            result_box("Slope (°C per decade)", "tr_mod_slope"),
+                            result_box("95% confidence interval", "tr_mod_ci"),
+                            result_box("p-value", "tr_mod_p"),
+                            result_box("R²", "tr_mod_r2")
+                          ),
+                          card(card_header("Annual values with fitted trend: Me (Role 1)"),
+                               p(class = "small text-muted mb-0", "Linear regression of temperature over time per city."),
+                               plotOutput("tr_mod_fit", height = "300px")),
+                          layout_columns(
+                            col_widths = c(6, 6),
+                            card(card_header("Residuals vs. fitted: Me (Role 1)"),
+                                 plotOutput("tr_mod_resid", height = "250px")),
+                            card(card_header("Normal Q-Q plot of residuals: Me (Role 1)"),
+                                 plotOutput("tr_mod_qq", height = "250px"))
+                          ),
+                          card(card_header("What this means: Me (Role 1)"),
+                               textOutput("tr_mod_text"))
+                        )
+                      )
              ),
-             
+
              # ---------------- SATELLITE VS. STATION: Prashant (Role 2) ----------------
              tabPanel("Satellite vs. Station",
                       layout_columns(
@@ -251,8 +274,10 @@ ui <- navbarPage(
 server <- function(input, output, session) {
   
   #Explore tab placeholders (replace with real outputs)
+  
   output$map     <- renderPlot(plot.new()) #Prashant
-  # Time series Brook
+  
+  # updated_time_series_brook
   output$ts_plot <- renderPlot({
     validate(need(length(input$cities) > 0, "Please choose at least one city."))
     
@@ -356,26 +381,26 @@ server <- function(input, output, session) {
   })
   output$summary <- renderTable(data.frame(Note = "Summary table coming soon")) #Prashant
   
-  #Statistics result box placeholders (each owner replaces theirs with real results)
-  result_ids <- c("tr_slope", "tr_ci", "tr_p", "tr_r2",       #Brook
-                  "sv_bias", "sv_p", "sv_slope", "sv_rmse",   #Prashant
-                  "dr_f", "dr_p", "dr_groups", "dr_pairs",    #Rachel
-                  "cp_a_mean", "cp_b_mean", "cp_diff", "cp_p") #Brook
+  #Statistics results placeholders (each owner replaces theirs with real plots)
+  result_ids <- c("tr_mod_slope", "tr_mod_ci", "tr_mod_p", "tr_mod_r2", #Brook
+                  "sv_bias", "sv_p", "sv_slope", "sv_rmse",              #Prashant
+                  "dr_f", "dr_p", "dr_groups", "dr_pairs",               #Rachel
+                  "cp_a_mean", "cp_b_mean", "cp_diff", "cp_p")           #Brook
   for (id in result_ids) {
     output[[id]] <- renderText("--")
   }
   
   #Statistics chart placeholders (each owner replaces theirs with real plots)
-  plot_ids <- c("tr_fit", "tr_resid", "tr_qq",  #Brook
-                "sv_scatter", "sv_resid",        #Prashant
-                "dr_means",                      #Rachel
-                "cp_dist")                       #Brook
+  plot_ids <- c("tr_mod_fit", "tr_mod_resid", "tr_mod_qq",  #Brook
+                "sv_scatter", "sv_resid",                    #Prashant
+                "dr_means",                                  #Rachel
+                "cp_dist")                                   #Brook
   for (id in plot_ids) {
     output[[id]] <- renderPlot(plot.new())
   }
   
   #"What this means" placeholders
-  text_ids <- c("tr_text", "sv_text", "dr_text", "cp_text")
+  text_ids <- c("tr_mod_text", "sv_text", "dr_text", "cp_text")
   for (id in text_ids) {
     output[[id]] <- renderText("Plain-language interpretation coming soon.")
   }
@@ -384,6 +409,253 @@ server <- function(input, output, session) {
   output$dr_checks  <- renderUI(p(class = "text-muted", "Shapiro-Wilk, Levene, and group sizes coming soon."))
   output$dr_anova   <- renderTable(data.frame(Note = "ANOVA table coming soon"))
   output$dr_posthoc <- renderTable(data.frame(Note = "Pairwise comparisons coming soon"))
+  
+  # ---------------- updated_trends_output_brook ----------------
+  tr_min_days  <- 330L
+  tr_var_label <- "Mean temperature (°C)"
+  
+  tr_meta <- reactive({
+    req(input$tr_source)
+    is_nasa <- identical(input$tr_source, "NASA POWER (satellite)")
+    list(
+      source_label = input$tr_source,
+      temp_col     = if (is_nasa) "nasa_mean" else "noaa_mean",
+      days_col     = if (is_nasa) "nasa_days" else "noaa_days",
+      line_color   = if (is_nasa) "#D95F02" else "#2166AC"
+    )
+  })
+  
+  tr_model_df <- reactive({
+    req(input$tr_city, input$tr_year_from, input$tr_year_to)
+    meta <- tr_meta()
+    
+    yr_min <- min(as.integer(input$tr_year_from), as.integer(input$tr_year_to), na.rm = TRUE)
+    yr_max <- max(as.integer(input$tr_year_from), as.integer(input$tr_year_to), na.rm = TRUE)
+    
+    df <- climate_annual |>
+      mutate(
+        GEOID = as.character(GEOID),
+        year  = as.integer(year),
+        city_label = if ("state" %in% names(climate_annual)) {
+          paste0(city, ", ", state)
+        } else {
+          as.character(city)
+        }
+      ) |>
+      filter(
+        GEOID == as.character(input$tr_city),
+        year >= yr_min,
+        year <= yr_max
+      )
+    
+    validate(need(nrow(df) > 0, "No annual records found for this city and year window."))
+    
+    if (meta$days_col %in% names(df)) {
+      df <- df |>
+        filter(!is.na(.data[[meta$days_col]]), .data[[meta$days_col]] >= tr_min_days)
+    }
+    
+    df <- df |>
+      filter(!is.na(.data[[meta$temp_col]]), !is.na(year)) |>
+      mutate(temp_c = as.numeric(.data[[meta$temp_col]])) |>
+      arrange(year)
+    
+    validate(need(nrow(df) >= 3, "At least 3 complete years (>= 330 days) are needed to fit a linear trend."))
+    df
+  })
+  
+  tr_results <- reactive({
+    df   <- tr_model_df()
+    meta <- tr_meta()
+    
+    fit      <- lm(temp_c ~ year, data = df)
+    fit_sum  <- summary(fit)
+    coef_mat <- coef(fit_sum)
+    
+    slope_yr     <- coef_mat["year", "Estimate"]
+    p_val        <- coef_mat["year", "Pr(>|t|)"]
+    r2_val       <- fit_sum$r.squared
+    ci_yr        <- confint(fit, "year", level = 0.95)
+    
+    slope_decade <- slope_yr * 10
+    ci_lo        <- ci_yr[1] * 10
+    ci_hi        <- ci_yr[2] * 10
+    
+    validate(need(all(is.finite(c(slope_decade, ci_lo, ci_hi, p_val, r2_val))),
+                  "Trend metrics could not be computed for this selection."))
+    
+    res_vals <- residuals(fit)
+    fit_vals <- fitted(fit)
+    
+    if (requireNamespace("lmtest", quietly = TRUE)) {
+      dw_out    <- lmtest::dwtest(fit)
+      dw_stat   <- as.numeric(dw_out$statistic)
+      dw_p      <- as.numeric(dw_out$p.value)
+      dw_p_txt  <- if (dw_p < 0.001) "< 0.001" else sprintf("%.3f", dw_p)
+      dw_metric <- sprintf("DW = %.2f, p = %s", dw_stat, dw_p_txt)
+    } else {
+      dw_stat   <- sum(diff(res_vals)^2) / sum(res_vals^2)
+      dw_metric <- sprintf("DW = %.2f", dw_stat)
+    }
+    
+    abs_resid_cor <- suppressWarnings(cor(abs(res_vals), fit_vals, use = "complete.obs"))
+    abs_cor_txt   <- sprintf("%.2f", abs(abs_resid_cor))
+    
+    shapiro_out <- if (length(res_vals) >= 3 && length(res_vals) <= 5000) {
+      shapiro.test(res_vals)
+    } else {
+      NULL
+    }
+    shapiro_p_txt <- if (!is.null(shapiro_out)) {
+      if (shapiro_out$p.value < 0.001) "< 0.001" else sprintf("%.4f", shapiro_out$p.value)
+    } else {
+      "N/A"
+    }
+    
+    tr_slope <- sprintf("%+.2f", slope_decade)
+    tr_ci    <- sprintf("[%+.2f, %+.2f]", ci_lo, ci_hi)
+    tr_p     <- if (p_val < 0.001) "< 0.001" else sprintf("%.4f", p_val)
+    tr_r2    <- sprintf("%.3f", r2_val)
+    
+    ci_note <- if (ci_lo > 0) {
+      "stays above zero"
+    } else if (ci_hi < 0) {
+      "stays below zero"
+    } else {
+      "crosses zero"
+    }
+    
+    sig_line <- if (p_val < 0.05) {
+      paste0(
+        "Because the 95% confidence interval (", tr_ci, " °C/decade) ", ci_note,
+        " and p is ", tr_p, " (< 0.05), the trend is statistically significant—pointing to a real average trend rather than random noise alone."
+      )
+    } else {
+      paste0(
+        "Because the 95% confidence interval (", tr_ci, " °C/decade) ", ci_note,
+        " and p is ", tr_p, " (>= 0.05), the trend is not statistically significant—year-to-year swings could easily produce a slope like this with no true trend."
+      )
+    }
+    
+    r2_pct_txt  <- sprintf("%.1f%%", r2_val * 100)
+    rem_pct_txt <- sprintf("%.1f%%", (1 - r2_val) * 100)
+    yr_to_req   <- max(as.integer(input$tr_year_from), as.integer(input$tr_year_to), na.rm = TRUE)
+    
+    cutoff_note <- if (yr_to_req == 2026L && max(df$year) < 2026L) {
+      " (Data runs through Oct 31, 2026; incomplete 2026 is excluded.)"
+    } else if (max(df$year) == 2026L) {
+      " (Data runs through Oct 31, 2026; complete years only.)"
+    } else {
+      ""
+    }
+    
+    main_summary <- paste0(
+      unique(df$city_label)[1], " (", tr_var_label, ", ", meta$source_label, ", ",
+      min(df$year), "–", max(df$year), ") shows an average linear trend of ",
+      tr_slope, " °C per decade. ", sig_line,
+      " The straight line accounts for ", r2_pct_txt,
+      " of the year-to-year temperature variation (R² = ", tr_r2,
+      "), leaving ", rem_pct_txt, " to other weather and climate fluctuations.",
+      cutoff_note
+    )
+    
+    dw_note_txt <- if (dw_stat >= 1.5 && dw_stat <= 2.5) {
+      "little lag-1 carry-over between adjacent years"
+    } else {
+      "possible lag-1 carry-over between adjacent years"
+    }
+    
+    spread_note_txt <- if (abs(abs_resid_cor) < 0.3) {
+      "even spread across fitted temperatures"
+    } else {
+      "shifting spread across fitted temperatures"
+    }
+    
+    norm_note_txt <- if (!is.null(shapiro_out) && shapiro_out$p.value >= 0.05) {
+      "no strong evidence against normality"
+    } else if (!is.null(shapiro_out)) {
+      "some evidence against normality"
+    } else {
+      "normality test skipped"
+    }
+    
+    assumptions_summary <- paste0(
+      "Assumption checks (read with the diagnostic plots): independence (", dw_metric,
+      " -> ", dw_note_txt, "; near 2.0 is ideal), spread vs. fitted (|r| = ", abs_cor_txt,
+      " -> ", spread_note_txt, "), and normality (Shapiro-Wilk p = ", shapiro_p_txt,
+      " -> ", norm_note_txt, ")."
+    )
+    
+    list(
+      df           = df,
+      meta         = meta,
+      fit          = fit,
+      tr_slope     = tr_slope,
+      tr_ci        = tr_ci,
+      tr_p         = tr_p,
+      tr_r2        = tr_r2,
+      tr_text      = paste(main_summary, assumptions_summary, sep = "\n\n"),
+      plot_diag_df = df |>
+        mutate(
+          fitted_c = fit_vals,
+          resid_c  = res_vals,
+          std_res  = rstandard(fit)
+        )
+    )
+  })
+  
+  output$tr_mod_slope <- renderText(tr_results()$tr_slope)
+  output$tr_mod_ci    <- renderText(tr_results()$tr_ci)
+  output$tr_mod_p     <- renderText(tr_results()$tr_p)
+  output$tr_mod_r2    <- renderText(tr_results()$tr_r2)
+  output$tr_mod_text  <- renderText(tr_results()$tr_text)
+  
+  output$tr_mod_fit <- renderPlot({
+    res <- tr_results()
+    city_lbl <- unique(res$df$city_label)[1]
+    
+    ggplot(res$plot_diag_df, aes(x = year, y = temp_c)) +
+      geom_point(color = res$meta$line_color, size = 2.2, alpha = 0.85) +
+      geom_line(color = res$meta$line_color, linewidth = 0.6, alpha = 0.5) +
+      geom_smooth(method = "lm", se = TRUE, color = "#111111", fill = "#D0D0D0", linewidth = 0.85) +
+      labs(
+        title = paste0(city_lbl, " — ", tr_var_label, " Trend"),
+        subtitle = paste0(
+          res$meta$source_label, " | Slope: ", res$tr_slope, " °C/decade | 95% CI: ", res$tr_ci,
+          " | p = ", res$tr_p, " | Data through Oct 31, 2026"
+        ),
+        x = "Year",
+        y = tr_var_label
+      ) +
+      theme_minimal(base_size = 11)
+  })
+  
+  output$tr_mod_resid <- renderPlot({
+    res <- tr_results()
+    ggplot(res$plot_diag_df, aes(x = fitted_c, y = resid_c)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "#666666") +
+      geom_point(color = res$meta$line_color, size = 2.2, alpha = 0.85) +
+      geom_smooth(method = "loess", se = FALSE, color = "#111111", linewidth = 0.8) +
+      labs(
+        title = "Residuals vs. Fitted",
+        x = "Fitted values (°C)",
+        y = "Residuals (°C)"
+      ) +
+      theme_minimal(base_size = 11)
+  })
+  
+  output$tr_mod_qq <- renderPlot({
+    res <- tr_results()
+    ggplot(res$plot_diag_df, aes(sample = std_res)) +
+      stat_qq(color = res$meta$line_color, size = 2.2, alpha = 0.85) +
+      stat_qq_line(color = "#111111", linetype = "dashed") +
+      labs(
+        title = "Normal Q-Q Plot of Residuals",
+        x = "Theoretical quantiles",
+        y = "Standardized residuals"
+      ) +
+      theme_minimal(base_size = 11)
+  })
   
   #every Explore output should start with:
   #validate(need(length(input$cities) > 0, "Please choose at least one city."))
