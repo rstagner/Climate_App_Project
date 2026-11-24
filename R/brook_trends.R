@@ -243,3 +243,53 @@ tr_text <- paste(main_summary, assumptions_summary, sep = "\n\n")
 cat("--- What this means (tr_text) ---\n")
 cat(tr_text, "\n\n")
 
+# ------------------------------------------------------------------------------
+# Plots for testing before Shiny integration (tr_fit, tr_resid, tr_qq)
+# ------------------------------------------------------------------------------
+plot_diag_df <- model_df |>
+  mutate(
+    fitted_c = fit_vals,
+    resid_c  = res_vals,
+    std_res  = rstandard(tr_model)
+  )
+
+tr_fit <- ggplot(plot_diag_df, aes(x = year, y = temp_c)) +
+  geom_point(color = line_color, size = 2.2, alpha = 0.85) +
+  geom_line(color = line_color, linewidth = 0.6, alpha = 0.5) +
+  geom_smooth(method = "lm", se = TRUE, color = "#111111", fill = "#D0D0D0", linewidth = 0.85) +
+  labs(
+    title = paste0(city_label_use, " — ", selected_variable, " Trend"),
+    subtitle = paste0(
+      selected_source, " | Slope: ", tr_slope, " °C/decade | 95% CI: ", tr_ci,
+      " | p = ", tr_p, " | Data through Oct 31, 2026"
+    ),
+    x = "Year",
+    y = selected_variable
+  ) +
+  theme_minimal(base_size = 11)
+
+tr_resid <- ggplot(plot_diag_df, aes(x = fitted_c, y = resid_c)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "#666666") +
+  geom_point(color = line_color, size = 2.2, alpha = 0.85) +
+  geom_smooth(method = "loess", se = FALSE, color = "#111111", linewidth = 0.8) +
+  labs(
+    title = "Residuals vs. Fitted",
+    x = "Fitted values (°C)",
+    y = "Residuals (°C)"
+  ) +
+  theme_minimal(base_size = 11)
+
+tr_qq <- ggplot(plot_diag_df, aes(sample = std_res)) +
+  stat_qq(color = line_color, size = 2.2, alpha = 0.85) +
+  stat_qq_line(color = "#111111", linetype = "dashed") +
+  labs(
+    title = "Normal Q-Q Plot of Residuals",
+    x = "Theoretical quantiles",
+    y = "Standardized residuals"
+  ) +
+  theme_minimal(base_size = 11)
+
+print(tr_fit)
+print(tr_resid)
+print(tr_qq)
+
