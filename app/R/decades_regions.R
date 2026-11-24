@@ -123,3 +123,25 @@ plot_group_means <- function(data, y_label = "Difference from 1991-2020 normal")
     labs(x = NULL, y = y_label) +
     theme_minimal(base_size = 13)
 }
+
+#plain language summary of run_group_test() for the "What this means" card
+describe_group_result <- function(result, group_by, alpha = 0.05) {
+  p_text <- if (result$p_value < 0.001) "p < 0.001" 
+            else paste0("p = ", round(result$p_value, 3))
+  what <- if (group_by == "decade") "the decades" else "the regions"
+  ranked <- result$means |> arrange(desc(mean))
+  top <- as.character(ranked$group[1])
+  bottom <- as.character(ranked$group[nrow(ranked)])
+  
+  if (result$p_value < alpha) {
+    paste0("There is a significant difference between ", 
+           what, " (", p_text, "). ",
+           top, " is highest and ", bottom, " is lowest. ",
+           result$n_sig_pairs, " of ", result$n_pairs, " pairs differ significantly.")
+  } else {
+    paste0("We did not find a significant difference between ", what, " (", 
+           p_text, "). ",
+           top, " is highest and ", bottom, " is lowest, but this could be 
+           due to chance.")
+  }
+}
