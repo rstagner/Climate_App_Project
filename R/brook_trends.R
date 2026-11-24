@@ -61,6 +61,35 @@ city_df <- climate_annual |>
     year >= yr_from,
     year <= yr_to
   )
+# ------------------------------------------------------------------------------
+# Fit linear trend and scale slope + 95% CI to °C per decade
+# ------------------------------------------------------------------------------
+tr_model   <- lm(temp_c ~ year, data = model_df)
+tr_summary <- summary(tr_model)
+tr_coef    <- coef(tr_summary)
+
+slope_yr     <- tr_coef["year", "Estimate"]
+p_val        <- tr_coef["year", "Pr(>|t|)"]
+r2_val       <- tr_summary$r.squared
+ci_yr        <- confint(tr_model, "year", level = 0.95)
+
+# Multiply per-year estimates by 10 so both slope and CI are in °C per decade
+slope_decade <- slope_yr * 10
+ci_lo        <- ci_yr[1] * 10
+ci_hi        <- ci_yr[2] * 10
+
+stopifnot(all(is.finite(c(slope_decade, ci_lo, ci_hi, p_val, r2_val))))
+
+tr_slope <- sprintf("%+.2f", slope_decade)
+tr_ci    <- sprintf("[%+.2f, %+.2f]", ci_lo, ci_hi)
+tr_p     <- if (p_val < 0.001) "< 0.001" else sprintf("%.4f", p_val)
+tr_r2    <- sprintf("%.3f", r2_val)
+
+cat("--- Stat cards ---\n")
+cat("tr_slope (°C/decade): ", tr_slope, "\n", sep = "")
+cat("tr_ci (95% CI):       ", tr_ci, "\n", sep = "")
+cat("tr_p (p-value):       ", tr_p, "\n", sep = "")
+cat("tr_r2 (R²):           ", tr_r2, "\n\n", sep = "")
 
 stopifnot(nrow(city_df) > 0)
 city_label_use <- unique(city_df$city_label)[1]
