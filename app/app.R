@@ -190,17 +190,17 @@ ui <- navbarPage(
                             result_box("p-value", "tr_mod_p"),
                             result_box("R²", "tr_mod_r2")
                           ),
-                          card(card_header("Annual values with fitted trend: Me (Role 1)"),
+                          card(card_header("Annual values with fitted trend: Brook (Role 1)"),
                                p(class = "small text-muted mb-0", "Linear regression of temperature over time per city."),
                                plotOutput("tr_mod_fit", height = "300px")),
                           layout_columns(
                             col_widths = c(6, 6),
-                            card(card_header("Residuals vs. fitted: Me (Role 1)"),
+                            card(card_header("Residuals vs. fitted: Brook (Role 1)"),
                                  plotOutput("tr_mod_resid", height = "250px")),
-                            card(card_header("Normal Q-Q plot of residuals: Me (Role 1)"),
+                            card(card_header("Normal Q-Q plot of residuals: Brook (Role 1)"),
                                  plotOutput("tr_mod_qq", height = "250px"))
                           ),
-                          card(card_header("What this means: Me (Role 1)"),
+                          card(card_header("What this means: Brook (Role 1)"),
                                textOutput("tr_mod_text"))
                         )
                       )
