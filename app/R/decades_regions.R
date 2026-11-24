@@ -101,3 +101,25 @@ run_group_test <- function(data, test = "anova", alpha = 0.05) {
   )
 }
 
+#------- Function 3: Plot Group Means
+
+#plot each group's mean with a 95% confidence interval
+#data: the output of prepare_group_data()
+
+plot_group_means <- function(data, y_label = "Difference from 1991-2020 normal") {
+  
+  summary <- data |> 
+    summarize(mean = mean(value),
+              se = sd(value) / sqrt(n()),
+              n = n(),
+              .by = group) |> 
+    mutate(lower = mean - qt(0.975, n - 1) * se,
+           upper = mean + qt(0.975, n- 1) * se)
+  
+  ggplot(summary, aes(x = group, y = mean)) +
+    geom_hline(yintercept = 0, linetype = "dashed", color = "gray50") +
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.15) +
+    geom_point(size = 3) +
+    labs(x = NULL, y = y_label) +
+    theme_minimal(base_size = 13)
+}
