@@ -252,23 +252,56 @@ ui <- navbarPage(
              ),
              
              # ---------------- COMPARE TWO PERIODS: Brook (Role 1) ----------------
+             # ---------------- COMPARE TWO PERIODS: Brook (Role 1) ----------------
              tabPanel("Compare Two Periods",
-                      layout_columns(
-                        class = "mt-3", #space below the pills
-                        result_box("Period A mean", "cp_a_mean"),
-                        result_box("Period B mean", "cp_b_mean"),
-                        result_box("Difference (B minus A)", "cp_diff"),
-                        result_box("p-value", "cp_p")
-                      ),
-                      card(card_header("Distribution of daily values in each period: Brook (Role 1)"),
-                           p(class = "small text-muted mb-0", "Two-period comparison with a t-test or Wilcoxon test."),
-                           plotOutput("cp_dist", height = "300px")),
-                      card(card_header("What this means: Brook (Role 1)"),
-                           textOutput("cp_text"))
+                      sidebarLayout(
+                        sidebarPanel(
+                          width = 3,
+                          h4("Period Comparison Controls"),
+                          selectInput("cp_city", strong("City"),
+                                      choices = city_choices,
+                                      selected = "92242"),
+                          radioButtons("cp_source", strong("Data source"),
+                                       choices = c("NOAA weather station", "NASA POWER (satellite)"),
+                                       selected = "NOAA weather station"),
+                          selectInput("cp_variable", strong("Variable"),
+                                      choices = c("Mean temperature (°C)",
+                                                  "Max temperature (°C)",
+                                                  "Min temperature (°C)"),
+                                      selected = "Mean temperature (°C)"),
+                          p(strong("Period A (earlier years)")),
+                          layout_columns(
+                            numericInput("cp_a_from", "From", value = 1990, min = 1990, max = 2026),
+                            numericInput("cp_a_to", "To", value = 2005, min = 1990, max = 2026)
+                          ),
+                          p(strong("Period B (later years)")),
+                          layout_columns(
+                            numericInput("cp_b_from", "From", value = 2011, min = 1990, max = 2026),
+                            numericInput("cp_b_to", "To", value = 2026, min = 1990, max = 2026)
+                          ),
+                          p(class = "text-muted small mb-0",
+                            "Uses Welch t-test for large samples (n >= 30 per period) or Wilcoxon rank-sum test otherwise.")
+                        ),
+                        mainPanel(
+                          width = 9,
+                          layout_columns(
+                            class = "mt-3",
+                            result_box("Period A mean", "cp_a_mean"),
+                            result_box("Period B mean", "cp_b_mean"),
+                            result_box("Difference (B minus A)", "cp_diff"),
+                            result_box("p-value", "cp_p")
+                          ),
+                          card(card_header("Distribution of daily values in each period: Brook (Role 1)"),
+                               p(class = "small text-muted mb-0",
+                                 "Two-period comparison with a t-test or Wilcoxon test (violin + boxplot + mean marker)."),
+                               plotOutput("cp_dist", height = "340px")),
+                          card(card_header("What this means: Brook (Role 1)"),
+                               textOutput("cp_text"))
+                        )
+                      )
              )
            )
   )
-  
 )
 
 server <- function(input, output, session) {
