@@ -5,6 +5,7 @@ library(bsicons)
 
 # placeholder for data loading; more will be added
 city_stations <- readRDS("data/city_stations.rds")
+climate_joined <- readRDS("data/climate_joined.rds")
 
 #build the city choices: "City, ST" labels in alphabetical order, GEOID is the value
 city_list <- city_stations |>
