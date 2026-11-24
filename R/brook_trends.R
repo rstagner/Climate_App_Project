@@ -119,3 +119,51 @@ cat("Complete years in model: ", nrow(model_df),
     " (", min(model_df$year), "–", max(model_df$year), ")\n\n", sep = "")
 stopifnot(nrow(model_df) >= 3)
 
+# ------------------------------------------------------------------------------
+# Model assumption & diagnostic checks
+# ------------------------------------------------------------------------------
+res_vals   <- residuals(tr_model)
+fit_vals   <- fitted(tr_model)
+cooks_vals <- cooks.distance(tr_model)
+
+# Check lag-1 autocorrelation in residuals (values near 2 indicate little serial correlation)
+if (requireNamespace("lmtest", quietly = TRUE)) {
+  dw_test_res <- lmtest::dwtest(tr_model)
+  dw_stat     <- as.numeric(dw_test_res$statistic)
+  dw_p        <- as.numeric(dw_test_res$p.value)
+  dw_p_txt    <- if (dw_p < 0.001) "< 0.001" else sprintf("%.3f", dw_p)
+  dw_metric   <- sprintf("DW = %.2f, p = %s", dw_stat, dw_p_txt)
+} else {
+  dw_stat   <- sum(diff(res_vals)^2) / sum(res_vals^2)
+  dw_metric <- sprintf("DW = %.2f", dw_stat)
+}
+
+# Check linear trend in residual spread across fitted values
+abs_resid_cor <- suppressWarnings(cor(abs(res_vals), fit_vals, use = "complete.obs"))
+abs_cor_txt   <- sprintf("%.2f", abs(abs_resid_cor))
+
+# Check residual normality alongside the Q-Q plot
+shapiro_out <- if (length(res_vals) >= 3 && length(res_vals) <= 5000) {
+  shapiro.test(res_vals)
+} else {
+  NULL
+}
+shapiro_p_txt <- if (!is.null(shapiro_out)) {
+  if (shapiro_out$p.value < 0.001) "< 0.001" else sprintf("%.4f", shapiro_out$p.value)
+} else {
+  "N/A"
+}
+
+top_cooks_idx <- which.max(cooks_vals)
+
+cat("--- Diagnostics ---\n")
+cat("Independence (", dw_metric, ")\n", sep = "")
+cat("Spread vs. fitted |r|:        ", abs_cor_txt,
+    " (sigma = ", sprintf("%.3f °C", tr_summary$sigma), ")\n", sep = "")
+if (!is.null(shapiro_out)) {
+  cat("Shapiro-Wilk:                 W = ", sprintf("%.4f", shapiro_out$statistic),
+      ", p = ", shapiro_p_txt, "\n", sep = "")
+}
+cat("Max Cook's D:                 ", sprintf("%.3f", cooks_vals[top_cooks_idx]),
+    " (", model_df$year[top_cooks_idx], ")\n\n", sep = "")
+
