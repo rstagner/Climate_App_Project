@@ -251,8 +251,7 @@ ui <- navbarPage(
                            textOutput("dr_text"))
              ),
              
-             # ---------------- COMPARE TWO PERIODS: Brook (Role 1) ----------------
-             # ---------------- COMPARE TWO PERIODS: Brook (Role 1) ----------------
+             # ---------------- updated_compare_two_periods_brook) ----------------
              tabPanel("Compare Two Periods",
                       sidebarLayout(
                         sidebarPanel(
@@ -688,6 +687,198 @@ server <- function(input, output, session) {
         y = "Standardized residuals"
       ) +
       theme_minimal(base_size = 11)
+  })
+  
+# ---------------- updated_compare_periods_output_brook ----------------
+  cp_meta <- reactive({
+    req(input$cp_source, input$cp_variable)
+    is_nasa <- identical(input$cp_source, "NASA POWER (satellite)")
+    
+    col_name <- switch(
+      paste(input$cp_source, input$cp_variable, sep = " | "),
+      "NOAA weather station | Mean temperature (°C)"   = "noaa_mean",
+      "NOAA weather station | Max temperature (°C)"    = "noaa_max",
+      "NOAA weather station | Min temperature (°C)"    = "noaa_min",
+      "NASA POWER (satellite) | Mean temperature (°C)" = "nasa_mean",
+      "NASA POWER (satellite) | Max temperature (°C)"  = "nasa_max",
+      "NASA POWER (satellite) | Min temperature (°C)"  = "nasa_min",
+      "noaa_mean"
+    )
+    
+    list(
+      source_label = input$cp_source,
+      var_label    = input$cp_variable,
+      col_name     = col_name,
+      line_color   = if (is_nasa) "#D95F02" else "#2166AC"
+    )
+  })
+  
+  cp_data <- reactive({
+    req(input$cp_city, input$cp_a_from, input$cp_a_to, input$cp_b_from, input$cp_b_to)
+    meta <- cp_meta()
+    
+    a_min <- min(as.integer(input$cp_a_from), as.integer(input$cp_a_to), na.rm = TRUE)
+    a_max <- max(as.integer(input$cp_a_from), as.integer(input$cp_a_to), na.rm = TRUE)
+    b_min <- min(as.integer(input$cp_b_from), as.integer(input$cp_b_to), na.rm = TRUE)
+    b_max <- max(as.integer(input$cp_b_from), as.integer(input$cp_b_to), na.rm = TRUE)
+    
+    validate(
+      need(
+        meta$col_name %in% names(climate_joined),
+        paste0("Column '", meta$col_name, "' was not found in climate_joined.")
+      )
+    )
+    
+    df <- climate_joined |>
+      mutate(
+        GEOID      = as.character(GEOID),
+        year       = as.integer(year),
+        date       = as.Date(date),
+        city_label = if ("state" %in% names(climate_joined)) {
+          paste0(city, ", ", state)
+        } else {
+          as.character(city)
+        }
+      ) |>
+      filter(
+        GEOID == as.character(input$cp_city),
+        !is.na(.data[[meta$col_name]]),
+        !is.na(year)
+      ) |>
+      mutate(
+        val  = as.numeric(.data[[meta$col_name]]),
+        in_a = year >= a_min & year <= a_max,
+        in_b = year >= b_min & year <= b_max
+      )
+    
+    a_df <- df |> filter(in_a) |> mutate(period_key = "A")
+    b_df <- df |> filter(in_b) |> mutate(period_key = "B")
+    
+    validate(
+      need(nrow(a_df) >= 5, "Period A has fewer than 5 non-missing daily observations for this selection."),
+      need(nrow(b_df) >= 5, "Period B has fewer than 5 non-missing daily observations for this selection.")
+    )
+    
+    list(
+      city_label = unique(df$city_label)[1],
+      a_df       = a_df,
+      b_df       = b_df,
+      a_span     = paste0(a_min, "–", a_max),
+      b_span     = paste0(b_min, "–", b_max)
+    )
+  })
+  
+  cp_results <- reactive({
+    d    <- cp_data()
+    meta <- cp_meta()
+    
+    a_vals <- d$a_df$val
+    b_vals <- d$b_df$val
+    
+    a_mean  <- mean(a_vals, na.rm = TRUE)
+    b_mean  <- mean(b_vals, na.rm = TRUE)
+    diff_ba <- b_mean - a_mean
+    
+    use_welch <- (length(a_vals) >= 30L) && (length(b_vals) >= 30L)
+    if (use_welch) {
+      test_out   <- t.test(b_vals, a_vals, var.equal = FALSE)
+      test_label <- "Welch two-sample t-test"
+    } else {
+      test_out   <- wilcox.test(b_vals, a_vals, exact = FALSE)
+      test_label <- "Wilcoxon rank-sum test"
+    }
+    
+    p_num     <- as.numeric(test_out$p.value)
+    p_val_txt <- if (p_num < 0.001) "< 0.001" else sprintf("%.4f", p_num)
+    
+    validate(
+      need(
+        is.finite(a_mean) && is.finite(b_mean) && is.finite(diff_ba) && is.finite(p_num),
+        "Comparison statistics could not be computed for this selection."
+      )
+    )
+    
+    cp_a_mean <- sprintf("%.2f", a_mean)
+    cp_b_mean <- sprintf("%.2f", b_mean)
+    cp_diff   <- sprintf("%+.2f", diff_ba)
+    
+    # Inline plain-language explanation ("What this means")
+    direction_txt <- if (diff_ba > 0) {
+      paste0(cp_diff, " higher in Period B (", d$b_span, ") than Period A (", d$a_span, ")")
+    } else if (diff_ba < 0) {
+      paste0(cp_diff, " lower in Period B (", d$b_span, ") than Period A (", d$a_span, ")")
+    } else {
+      "0.00 difference between Period A and Period B"
+    }
+    
+    sig_txt <- if (p_num < 0.05) {
+      paste0(
+        "Because p is ", p_val_txt, " (< 0.05), the difference between the two periods is statistically significant using a ",
+        test_label, "."
+      )
+    } else {
+      paste0(
+        "Because p is ", p_val_txt, " (>= 0.05), the difference between the two periods is not statistically significant using a ",
+        test_label, "."
+      )
+    }
+    
+    cp_text <- paste0(
+      d$city_label, " (", meta$var_label, ", ", meta$source_label, ") has a Period A (",
+      d$a_span, ") mean of ", cp_a_mean, " and a Period B (", d$b_span, ") mean of ",
+      cp_b_mean, "—a shift of ", direction_txt, ". ", sig_txt,
+      " (Sample sizes: n = ", length(a_vals), " daily records in Period A and n = ",
+      length(b_vals), " in Period B.)"
+    )
+    
+    p_a_lbl <- paste0("Period A (", d$a_span, ")")
+    p_b_lbl <- paste0("Period B (", d$b_span, ")")
+    
+    plot_df <- bind_rows(
+      d$a_df |> mutate(period_lbl = p_a_lbl),
+      d$b_df |> mutate(period_lbl = p_b_lbl)
+    ) |>
+      mutate(period_lbl = factor(period_lbl, levels = c(p_a_lbl, p_b_lbl)))
+    
+    list(
+      cp_a_mean  = cp_a_mean,
+      cp_b_mean  = cp_b_mean,
+      cp_diff    = cp_diff,
+      cp_p       = p_val_txt,
+      cp_text    = cp_text,
+      test_label = test_label,
+      plot_df    = plot_df,
+      p_a_lbl    = p_a_lbl,
+      p_b_lbl    = p_b_lbl,
+      city_label = d$city_label,
+      meta       = meta
+    )
+  })
+  
+  output$cp_a_mean <- renderText(cp_results()$cp_a_mean)
+  output$cp_b_mean <- renderText(cp_results()$cp_b_mean)
+  output$cp_diff   <- renderText(cp_results()$cp_diff)
+  output$cp_p      <- renderText(cp_results()$cp_p)
+  output$cp_text   <- renderText(cp_results()$cp_text)
+  
+  output$cp_dist <- renderPlot({
+    res <- cp_results()
+    ggplot(res$plot_df, aes(x = period_lbl, y = val, fill = period_lbl)) +
+      geom_violin(alpha = 0.25, trim = TRUE, color = NA) +
+      geom_boxplot(width = 0.22, outlier.alpha = 0.2, color = "#111111") +
+      stat_summary(fun = mean, geom = "point", shape = 18, size = 3.2, color = res$meta$line_color) +
+      scale_fill_manual(values = setNames(c("#2166AC", "#D95F02"), c(res$p_a_lbl, res$p_b_lbl))) +
+      labs(
+        title = paste0(res$city_label, " — ", res$meta$var_label, " Across Periods"),
+        subtitle = paste0(
+          res$meta$source_label, " | ", res$test_label,
+          " | Diff (B - A): ", res$cp_diff, " | p = ", res$cp_p
+        ),
+        x = NULL,
+        y = res$meta$var_label
+      ) +
+      theme_minimal(base_size = 11) +
+      theme(legend.position = "none")
   })
   
   #every Explore output should start with:
