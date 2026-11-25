@@ -502,7 +502,55 @@ server <- function(input, output, session) {
   })
   
   output$dr_text <- renderText(describe_group_result(dr_result(), input$dr_group))
+  # ---------------- COMPARE TWO PERIODS (Brook) ----------------
+  cp_data <- reactive({
+    req(
+      input$cp_city, input$cp_source, input$cp_variable,
+      input$cp_a_from, input$cp_a_to, input$cp_b_from, input$cp_b_to
+    )
+    prepare_cp_data(
+      annual        = climate_annual,
+      city_id       = input$cp_city,
+      source_choice = input$cp_source,
+      var_label     = input$cp_variable,
+      a_from        = input$cp_a_from,
+      a_to          = input$cp_a_to,
+      b_from        = input$cp_b_from,
+      b_to          = input$cp_b_to
+    )
+  })
   
+  cp_result <- reactive({
+    run_cp_test(cp_data())
+  })
+  
+  format_cp_p <- function(p) {
+    if (p < 0.001) "< 0.001" else sprintf("%.3f", p)
+  }
+  
+  output$cp_a_mean <- renderText({
+    sprintf("%.2f", cp_result()$mean_a)
+  })
+  
+  output$cp_b_mean <- renderText({
+    sprintf("%.2f", cp_result()$mean_b)
+  })
+  
+  output$cp_diff <- renderText({
+    sprintf("%+.2f", cp_result()$diff_ba)
+  })
+  
+  output$cp_p <- renderText({
+    format_cp_p(cp_result()$p_value)
+  })
+  
+  output$cp_dist <- renderPlot({
+    plot_cp_dist(cp_result(), input$cp_variable)
+  })
+  
+  output$cp_text <- renderText({
+    describe_cp_result(cp_result(), input$cp_variable)
+  })
   #every Explore output should start with:
   #validate(need(length(input$cities) > 0, "Please choose at least one city."))
 }
