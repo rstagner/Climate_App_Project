@@ -330,6 +330,25 @@ server <- function(input, output, session) {
     )
   })
   
+  # ---------------- TIME SERIES (Brook) ----------------
+  ts_data <- eventReactive(input$button, {
+    prepare_explore_ts_data(
+      annual        = climate_annual,
+      city_ids      = input$cities,
+      source_choice = input$source,
+      var_label     = input$variable,
+      year_from     = input$year_from,
+      year_to       = input$year_to
+    )
+  }, ignoreNULL = FALSE)
+  
+  output$ts_plot <- renderPlot({
+    plot_explore_ts(
+      ts_df     = ts_data(),
+      var_label = input$variable
+    )
+  })
+  
   # ---------------- DECADES AND REGIONS (Rachel) ----------------
   dr_data <- reactive({
     prepare_group_data(climate_annual, input$dr_group,
