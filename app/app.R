@@ -331,7 +331,8 @@ server <- function(input, output, session) {
   })
   
   # ---------------- TIME SERIES (Brook) ----------------
-  ts_data <- eventReactive(input$button, {
+  ts_data <- reactive({
+    req(input$source, input$variable, input$year_from, input$year_to)
     prepare_explore_ts_data(
       annual        = climate_annual,
       city_ids      = input$cities,
@@ -340,7 +341,7 @@ server <- function(input, output, session) {
       year_from     = input$year_from,
       year_to       = input$year_to
     )
-  }, ignoreNULL = FALSE)
+  })
   
   output$ts_plot <- renderPlot({
     plot_explore_ts(
