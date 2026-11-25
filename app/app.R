@@ -162,26 +162,49 @@ ui <- navbarPage(
              
              # ---------------- TRENDS: Brook (Role 1) ----------------
              tabPanel("Trends",
-                      #result boxes across the top
-                      layout_columns(
-                        class = "mt-3", #space below the pills
-                        result_box("Slope (°C per decade)", "tr_slope"),
-                        result_box("95% confidence interval", "tr_ci"),
-                        result_box("p-value", "tr_p"),
-                        result_box("R²", "tr_r2")
-                      ),
-                      card(card_header("Annual values with fitted trend: Brook (Role 1)"),
-                           p(class = "small text-muted mb-0", "Linear regression of temperature over time per city."),
-                           plotOutput("tr_fit", height = "300px")),
-                      layout_columns(
-                        col_widths = c(6, 6),
-                        card(card_header("Residuals vs. fitted: Brook (Role 1)"),
-                             plotOutput("tr_resid", height = "250px")),
-                        card(card_header("Normal Q-Q plot of residuals: Brook (Role 1)"),
-                             plotOutput("tr_qq", height = "250px"))
-                      ),
-                      card(card_header("What this means: Brook (Role 1)"),
-                           textOutput("tr_text"))
+                      layout_sidebar(
+                        class = "mt-3",
+                        
+                        # left side: controls for trend analysis
+                        sidebar = sidebar(
+                          title = "Choose your trend",
+                          width = 280,
+                          open = "always",
+                          selectInput("tr_city", strong("City"),
+                                      choices = city_choices,
+                                      selected = "92242"),
+                          radioButtons("tr_source", strong("Data source"),
+                                       choices = c("NOAA weather station", "NASA POWER (satellite)")),
+                          selectInput("tr_variable", strong("Variable"),
+                                      choices = c("Mean temperature (°C)",
+                                                  "Max temperature (°C)",
+                                                  "Min temperature (°C)")),
+                          layout_columns(
+                            numericInput("tr_year_from", "From", value = 1990, min = 1990, max = 2026),
+                            numericInput("tr_year_to", "To", value = 2026, min = 1990, max = 2026)
+                          )
+                        ),
+                        
+                        # right side: result boxes, diagnostic plots, and interpretation
+                        layout_columns(
+                          result_box("Slope (°C per decade)", "tr_slope"),
+                          result_box("95% confidence interval", "tr_ci"),
+                          result_box("p-value", "tr_p"),
+                          result_box("R²", "tr_r2")
+                        ),
+                        card(card_header("Annual values with fitted trend: Brook (Role 1)"),
+                             p(class = "small text-muted mb-0", "Linear regression of temperature over time for the selected city."),
+                             plotOutput("tr_fit", height = "300px")),
+                        layout_columns(
+                          col_widths = c(6, 6),
+                          card(card_header("Residuals vs. fitted: Brook (Role 1)"),
+                               plotOutput("tr_resid", height = "250px")),
+                          card(card_header("Normal Q-Q plot of residuals: Brook (Role 1)"),
+                               plotOutput("tr_qq", height = "250px"))
+                        ),
+                        card(card_header("What this means: Brook (Role 1)"),
+                             textOutput("tr_text"))
+                      )
              ),
              
              # ---------------- SATELLITE VS. STATION: Prashant (Role 2) ----------------
