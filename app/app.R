@@ -332,26 +332,6 @@ server <- function(input, output, session) {
     output[[id]] <- renderText("Plain-language interpretation coming soon.")
   }
   
-  # ---------------- TIME SERIES (Brook) ----------------
-  ts_df <- reactive({
-    req(input$ts_city, input$ts_source, input$ts_year_from, input$ts_year_to)
-    prepare_ts_data(
-      annual        = climate_annual,
-      city_id       = input$ts_city,
-      source_choice = input$ts_source,
-      year_from     = input$ts_year_from,
-      year_to       = input$ts_year_to,
-      var_choice    = if (!is.null(input$ts_var)) input$ts_var else "mean_temp"
-    )
-  })
-  
-  output$ts_plot <- renderPlot({
-    plot_ts_series(
-      ts_df       = ts_df(),
-      var_choice  = if (!is.null(input$ts_var)) input$ts_var else "mean_temp",
-      show_smooth = if (!is.null(input$ts_smooth)) input$ts_smooth else TRUE
-    )
-  })
   
   # ---------------- TIME SERIES (Brook) ----------------
   ts_data <- reactive({
