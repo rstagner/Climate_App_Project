@@ -103,3 +103,33 @@ prepare_cp_data <- function(annual,
       period = factor(period, levels = c(period_a_label, period_b_label))
     )
 }
+
+# run two-sample comparison (Welch's t-test + Wilcoxon rank-sum reference)
+run_cp_test <- function(cp_df) {
+  vals_a <- cp_df$value[cp_df$period_role == "Period A"]
+  vals_b <- cp_df$value[cp_df$period_role == "Period B"]
+  
+  mean_a <- mean(vals_a, na.rm = TRUE)
+  mean_b <- mean(vals_b, na.rm = TRUE)
+  diff_ba <- mean_b - mean_a
+  
+  t_res <- stats::t.test(vals_b, vals_a, var.equal = FALSE)
+  w_res <- stats::wilcox.test(vals_b, vals_a, exact = FALSE)
+  
+  list(
+    data           = cp_df,
+    city_label     = cp_df$city_label[1],
+    period_a_label = levels(cp_df$period)[1],
+    period_b_label = levels(cp_df$period)[2],
+    n_a            = length(vals_a),
+    n_b            = length(vals_b),
+    mean_a         = mean_a,
+    mean_b         = mean_b,
+    diff_ba        = diff_ba,
+    ci_low         = t_res$conf.int[1],
+    ci_high        = t_res$conf.int[2],
+    p_value        = t_res$p.value,
+    wilcox_p       = w_res$p.value
+  )
+}
+
