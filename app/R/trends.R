@@ -176,4 +176,32 @@ plot_trends_qq <- function(trend_res) {
     ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
 }
 
-
+# plain-language summary written for high school students
+describe_trends_result <- function(trend_res, var_label) {
+  rate_abs  <- abs(trend_res$slope_dec)
+  direction <- if (trend_res$slope_dec > 0.01) {
+    "trending upward (warmer)"
+  } else if (trend_res$slope_dec < -0.01) {
+    "trending downward (cooler)"
+  } else {
+    "staying nearly flat"
+  }
+  
+  sig_text <- if (trend_res$p_value < 0.05) {
+    "This pattern is statistically significant (p < 0.05), meaning a trend this strong is unlikely to happen just by random year-to-year weather swings."
+  } else {
+    "This pattern is not statistically significant (p >= 0.05), so year-to-year weather ups and downs could easily produce a line like this by chance."
+  }
+  
+  r2_pct <- round(trend_res$r_squared * 100, 1)
+  
+  paste0(
+    "In ", trend_res$city_label, " (", trend_res$year_start, " to ", trend_res$year_end,
+    "), ", tolower(var_label), " is ", direction, " at about ",
+    sprintf("%.2f", rate_abs), " per decade (95% confidence interval: ",
+    sprintf("%+.2f", trend_res$ci_low), " to ", sprintf("%+.2f", trend_res$ci_high),
+    " per decade). ", sig_text,
+    " Year explains about ", r2_pct, "% of the total year-to-year variation, ",
+    "which is normal because weather bounces around a lot from one year to the next."
+  )
+}
