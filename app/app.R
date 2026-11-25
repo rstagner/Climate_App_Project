@@ -373,6 +373,60 @@ server <- function(input, output, session) {
     )
   })
   
+  # ---------------- TRENDS (Brook) ----------------
+  tr_data <- reactive({
+    req(input$tr_city, input$tr_source, input$tr_variable, input$tr_year_from, input$tr_year_to)
+    prepare_trends_data(
+      annual        = climate_annual,
+      city_id       = input$tr_city,
+      source_choice = input$tr_source,
+      var_label     = input$tr_variable,
+      year_from     = input$tr_year_from,
+      year_to       = input$tr_year_to
+    )
+  })
+  
+  tr_result <- reactive({
+    fit_trends_model(tr_data())
+  })
+  
+  format_tr_p <- function(p) {
+    if (p < 0.001) "< 0.001" else sprintf("%.3f", p)
+  }
+  
+  output$tr_slope <- renderText({
+    sprintf("%+.2f", tr_result()$slope_dec)
+  })
+  
+  output$tr_ci <- renderText({
+    r <- tr_result()
+    paste0("[", sprintf("%+.2f", r$ci_low), ", ", sprintf("%+.2f", r$ci_high), "]")
+  })
+  
+  output$tr_p <- renderText({
+    format_tr_p(tr_result()$p_value)
+  })
+  
+  output$tr_r2 <- renderText({
+    sprintf("%.2f", tr_result()$r_squared)
+  })
+  
+  output$tr_fit <- renderPlot({
+    plot_trends_fit(tr_result(), input$tr_variable)
+  })
+  
+  output$tr_resid <- renderPlot({
+    plot_trends_resid(tr_result())
+  })
+  
+  output$tr_qq <- renderPlot({
+    plot_trends_qq(tr_result())
+  })
+  
+  output$tr_text <- renderText({
+    describe_trends_result(tr_result(), input$tr_variable)
+  })
+  
   # ---------------- DECADES AND REGIONS (Rachel) ----------------
   dr_data <- reactive({
     prepare_group_data(climate_annual, input$dr_group,
