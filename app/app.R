@@ -305,11 +305,11 @@ server <- function(input, output, session) {
   
   #Explore tab placeholders (replace with real outputs)
   output$map     <- renderPlot(plot.new()) #Prashant
-  output$ts_plot <- renderPlot(plot.new()) #Brook
   output$summary <- renderTable(data.frame(Note = "Summary table coming soon")) #Prashant
   
   #Statistics result box placeholders (each owner replaces theirs with real results)
-  result_ids <- c("tr_slope", "tr_ci", "tr_p", "tr_r2",       #Brook
+  
+  result_ids <- c( #Brook's Done
                   "sv_bias", "sv_p", "sv_slope", "sv_rmse",   #Prashant
                   #Rachel's done
                   "cp_a_mean", "cp_b_mean", "cp_diff", "cp_p") #Brook
@@ -318,7 +318,7 @@ server <- function(input, output, session) {
   }
   
   #Statistics chart placeholders (each owner replaces theirs with real plots)
-  plot_ids <- c("tr_fit", "tr_resid", "tr_qq",  #Brook
+  plot_ids <- c( #Brook's done
                 "sv_scatter", "sv_resid",        #Prashant
                 #Rachel done
                 "cp_dist")                       #Brook
@@ -327,7 +327,7 @@ server <- function(input, output, session) {
   }
   
   #"What this means" placeholders
-  text_ids <- c("tr_text", "sv_text", "cp_text")
+  text_ids <- c("sv_text", "cp_text")
   for (id in text_ids) {
     output[[id]] <- renderText("Plain-language interpretation coming soon.")
   }
