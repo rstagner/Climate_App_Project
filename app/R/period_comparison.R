@@ -133,3 +133,33 @@ run_cp_test <- function(cp_df) {
   )
 }
 
+# plot distribution (boxplot + jittered yearly points) for Period A vs Period B
+plot_cp_dist <- function(cp_res, var_label) {
+  var_meta <- map_cp_var(var_label)
+  df       <- cp_res$data
+  
+  ggplot2::ggplot(df, ggplot2::aes(x = period, y = value, fill = period_role)) +
+    ggplot2::geom_boxplot(width = 0.45, alpha = 0.35, outlier.shape = NA) +
+    ggplot2::geom_jitter(
+      ggplot2::aes(color = period_role),
+      width = 0.12, height = 0, size = 2.2, alpha = 0.85
+    ) +
+    ggplot2::scale_fill_manual(
+      values = c("Period A" = "#1f5a8a", "Period B" = "#d95f02"),
+      guide  = "none"
+    ) +
+    ggplot2::scale_color_manual(
+      values = c("Period A" = "#1f5a8a", "Period B" = "#d95f02"),
+      guide  = "none"
+    ) +
+    ggplot2::labs(
+      title    = paste0(cp_res$city_label, ": ", cp_res$period_b_label, " vs. ", cp_res$period_a_label),
+      subtitle = sprintf("Mean difference (B - A): %+.2f °C (Welch p = %s)",
+                         cp_res$diff_ba,
+                         if (cp_res$p_value < 0.001) "< 0.001" else sprintf("%.3f", cp_res$p_value)),
+      x        = NULL,
+      y        = var_meta$y_label
+    ) +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
+}
