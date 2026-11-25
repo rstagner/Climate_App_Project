@@ -163,3 +163,31 @@ plot_cp_dist <- function(cp_res, var_label) {
     ggplot2::theme_minimal(base_size = 11) +
     ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
 }
+
+# plain-language summary written for high school students
+describe_cp_result <- function(cp_res, var_label) {
+  mag_abs <- abs(cp_res$diff_ba)
+  direction_phrase <- if (cp_res$diff_ba > 0.01) {
+    paste0("higher (warmer) by about ", sprintf("%.2f", mag_abs), " in ", cp_res$period_b_label)
+  } else if (cp_res$diff_ba < -0.01) {
+    paste0("lower (cooler) by about ", sprintf("%.2f", mag_abs), " in ", cp_res$period_b_label)
+  } else {
+    paste0("nearly the same in ", cp_res$period_b_label, " as in ", cp_res$period_a_label)
+  }
+  
+  sig_text <- if (cp_res$p_value < 0.05) {
+    "This difference is statistically significant (p < 0.05), so the shift between the two periods is unlikely to be just random year-to-year weather noise."
+  } else {
+    "This difference is not statistically significant (p >= 0.05), meaning normal year-to-year weather swings could easily produce a gap like this."
+  }
+  
+  paste0(
+    "In ", cp_res$city_label, ", average ", tolower(var_label), " was ",
+    sprintf("%.2f", cp_res$mean_a), " during ", cp_res$period_a_label,
+    " and ", sprintf("%.2f", cp_res$mean_b), " during ", cp_res$period_b_label,
+    ". That means values are ", direction_phrase, " than in ", cp_res$period_a_label,
+    " (95% confidence interval for B minus A: ",
+    sprintf("%+.2f", cp_res$ci_low), " to ", sprintf("%+.2f", cp_res$ci_high),
+    "). ", sig_text
+  )
+}
