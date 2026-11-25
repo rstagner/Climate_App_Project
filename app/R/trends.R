@@ -123,3 +123,57 @@ fit_trends_model <- function(trend_df) {
     r_squared  = r2_val
   )
 }
+
+# plot annual values with fitted linear trend line
+plot_trends_fit <- function(trend_res, var_label) {
+  var_meta <- map_trends_var(var_label)
+  df       <- trend_res$data
+  
+  ggplot2::ggplot(df, ggplot2::aes(x = year, y = value)) +
+    ggplot2::geom_point(color = "#1f5a8a", size = 2, alpha = 0.85) +
+    ggplot2::geom_smooth(method = "lm", se = TRUE, color = "#d95f02", fill = "#d95f02", alpha = 0.18) +
+    ggplot2::labs(
+      title    = paste0(trend_res$city_label, " (", trend_res$year_start, "–", trend_res$year_end, ")"),
+      subtitle = sprintf("Trend: %+.2f °C/decade (p = %s)",
+                         trend_res$slope_dec,
+                         if (trend_res$p_value < 0.001) "< 0.001" else sprintf("%.3f", trend_res$p_value)),
+      x        = "Year",
+      y        = var_meta$y_label
+    ) +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
+}
+
+# plot residuals vs fitted values to check linearity and constant spread
+plot_trends_resid <- function(trend_res) {
+  df <- trend_res$data
+  
+  ggplot2::ggplot(df, ggplot2::aes(x = fitted, y = resid)) +
+    ggplot2::geom_hline(yintercept = 0, linetype = "dashed", color = "gray45") +
+    ggplot2::geom_point(color = "#1f5a8a", size = 1.8, alpha = 0.85) +
+    ggplot2::labs(
+      title = "Residuals vs. Fitted",
+      x     = "Fitted value",
+      y     = "Residual"
+    ) +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
+}
+
+# plot normal Q-Q of standardized residuals
+plot_trends_qq <- function(trend_res) {
+  df <- trend_res$data
+  
+  ggplot2::ggplot(df, ggplot2::aes(sample = std_resid)) +
+    ggplot2::stat_qq(color = "#1f5a8a", size = 1.8, alpha = 0.85) +
+    ggplot2::stat_qq_line(color = "#d95f02", linetype = "dashed") +
+    ggplot2::labs(
+      title = "Normal Q-Q Plot",
+      x     = "Theoretical quantiles",
+      y     = "Standardized residuals"
+    ) +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(panel.grid.minor = ggplot2::element_blank())
+}
+
+
