@@ -125,3 +125,37 @@ prepare_explore_ts_data <- function(annual,
   
   out
 }
+
+# plot annual time series, faceting when multiple cities are selected
+plot_explore_ts <- function(ts_df, var_label) {
+  var_meta <- map_explore_ts_var(var_label)
+  n_cities <- dplyr::n_distinct(ts_df$city_label)
+  
+  source_palette <- c(
+    "NOAA weather station"   = "#1f5a8a",
+    "NASA POWER (satellite)" = "#d95f02"
+  )
+  
+  p <- ggplot2::ggplot(ts_df, ggplot2::aes(x = year, y = value, color = source)) +
+    ggplot2::geom_line(linewidth = 0.85, alpha = 0.9) +
+    ggplot2::geom_point(size = 1.6, alpha = 0.85) +
+    ggplot2::scale_color_manual(values = source_palette, name = "Data source") +
+    ggplot2::labs(
+      title = var_label,
+      x     = "Year",
+      y     = var_meta$y_label
+    ) +
+    ggplot2::theme_minimal(base_size = 11) +
+    ggplot2::theme(
+      legend.position  = "top",
+      panel.grid.minor = ggplot2::element_blank()
+    )
+  
+  if (n_cities > 1) {
+    p <- p + ggplot2::facet_wrap(~ city_label, scales = "free_y")
+  } else {
+    p <- p + ggplot2::labs(subtitle = unique(ts_df$city_label)[1])
+  }
+  
+  p
+}
