@@ -335,53 +335,33 @@ server <- function(input, output, session) {
   
   #Explore tab placeholders (replace with real outputs)
   output$map     <- renderPlot(plot.new()) #Prashant
-  output$ts_plot <- renderPlot(plot.new()) #Brook
   output$summary <- renderTable(data.frame(Note = "Summary table coming soon")) #Prashant
   
   #Statistics result box placeholders (each owner replaces theirs with real results)
-  result_ids <- c("tr_slope", "tr_ci", "tr_p", "tr_r2",       #Brook
-                  "sv_bias", "sv_p", "sv_slope", "sv_rmse",   #Prashant
+  result_ids <- c(
+                  "sv_bias", "sv_p", "sv_slope", "sv_rmse" #Prashant
                   #Rachel's done
-                  "cp_a_mean", "cp_b_mean", "cp_diff", "cp_p") #Brook
+                 ) #Brook's Done
   for (id in result_ids) {
     output[[id]] <- renderText("--")
   }
   
   #Statistics chart placeholders (each owner replaces theirs with real plots)
-  plot_ids <- c("tr_fit", "tr_resid", "tr_qq",  #Brook
-                "sv_scatter", "sv_resid",        #Prashant
+  plot_ids <- c(  #Brook Done
+                "sv_scatter", "sv_resid"       #Prashant
                 #Rachel done
-                "cp_dist")                       #Brook
+                )                     
   for (id in plot_ids) {
     output[[id]] <- renderPlot(plot.new())
   }
   
   #"What this means" placeholders
-  text_ids <- c("tr_text", "sv_text", "cp_text")
+  
+  text_ids <- c("sv_text")#Prashant
   for (id in text_ids) {
     output[[id]] <- renderText("Plain-language interpretation coming soon.")
   }
   
-  # ---------------- TIME SERIES (Brook) ----------------
-  ts_df <- reactive({
-    req(input$ts_city, input$ts_source, input$ts_year_from, input$ts_year_to)
-    prepare_ts_data(
-      annual        = climate_annual,
-      city_id       = input$ts_city,
-      source_choice = input$ts_source,
-      year_from     = input$ts_year_from,
-      year_to       = input$ts_year_to,
-      var_choice    = if (!is.null(input$ts_var)) input$ts_var else "mean_temp"
-    )
-  })
-  
-  output$ts_plot <- renderPlot({
-    plot_ts_series(
-      ts_df       = ts_df(),
-      var_choice  = if (!is.null(input$ts_var)) input$ts_var else "mean_temp",
-      show_smooth = if (!is.null(input$ts_smooth)) input$ts_smooth else TRUE
-    )
-  })
   
   # ---------------- TIME SERIES (Brook) ----------------
   ts_data <- reactive({
@@ -502,6 +482,7 @@ server <- function(input, output, session) {
   })
   
   output$dr_text <- renderText(describe_group_result(dr_result(), input$dr_group))
+  
   # ---------------- COMPARE TWO PERIODS (Brook) ----------------
   cp_data <- reactive({
     req(
