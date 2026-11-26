@@ -100,6 +100,7 @@ ui <- navbarPage(
            p(class = "text-muted small mb-0", "DATA 613 Group Project. Prashant Choudhary, Brook Estifanos, Rachel Stagner. References listed in the vignette")
   ),
   
+  #----------------------Explore Tab------------- # 
   
   tabPanel("Explore",
            sidebarLayout(
@@ -125,6 +126,7 @@ ui <- navbarPage(
                  numericInput("year_from", "From", value = 1990, min = 1990, max = 2026), #start of data
                  numericInput("year_to", "To", value = 2026, min = 1990, max = 2026) #change to whatever our end year is
                ),
+               checkboxInput("smooth", "Show trend line", value = FALSE),
                actionButton("button", "Submit")
                
              ),
@@ -228,7 +230,6 @@ ui <- navbarPage(
                            textOutput("sv_text"))
              ),
              
-             # ---------------- DECADES AND REGIONS: Rachel (Role 3) ----------------
              # ---------------- DECADES AND REGIONS: Rachel (Role 3) ----------------
              tabPanel("Decades and Regions",
                       layout_sidebar(
@@ -362,6 +363,12 @@ server <- function(input, output, session) {
     output[[id]] <- renderText("Plain-language interpretation coming soon.")
   }
   
+  #NASA precip isn't in our dta, so precipitation always uses NOAA
+  observeEvent(input$variable, {
+    if (input$variable == "Precipitation (mm)") {
+      updateRadioButtons(session, "source", selected = "NOAA weather station")
+    }
+  })
   
   # ---------------- TIME SERIES (Brook) ----------------
   ts_data <- reactive({
@@ -377,10 +384,46 @@ server <- function(input, output, session) {
   })
   
   output$ts_plot <- renderPlot({
-    plot_explore_ts(
+    validate(need(
+      !(input$variable == "Precipitation (mm)" && input$source != "NOAA weather station"),
+      "Precipitation is only available from NOAA weather stations. Choose \"NOAA weather station\" above."
+    ))
+    #Brook's existing call, unchanged
+    p <- plot_explore_ts(
       ts_df     = ts_data(),
       var_label = input$variable
     )
+    
+    #color each city differently; facets already name the city
+    if (input$source == "Both, overlaid") {
+      #two sources: color by source, so NASA and NOAA are easy to tell apart
+      p <- p + 
+        aes(color = source) +
+        scale_color_manual(values = c("NASA POWER (satellite)" = "#1B9E77",
+                                      "NOAA weather station"   = "#D95F02"),
+                           name = "Data source")
+    } else {
+      #one source: color each city differently; facets already name the city
+      p <- p + 
+        aes(color = city_label) +
+        scale_color_brewer(palette = "Dark2") +
+        guides(color = "none")
+    }
+    
+    #add a dashed trend line when the box is checked
+    if (isTRUE(input$smooth)) {
+      if (input$source == "Both, overlaid") {
+        #dashed trend in each source's color
+        p <- p + geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
+                             linewidth = 0.8, linetype = "dashed")
+      } else {
+        p <- p + geom_smooth(method = "lm", formula = y ~ x, se = FALSE,
+                             linewidth = 0.8, linetype = "dashed", color = "black")
+      }
+    }
+    #prints the chart
+    p
+    
   })
   
   # ---------------- TRENDS (Brook) ----------------
