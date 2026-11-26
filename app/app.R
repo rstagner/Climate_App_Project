@@ -162,26 +162,49 @@ ui <- navbarPage(
              
              # ---------------- TRENDS: Brook (Role 1) ----------------
              tabPanel("Trends",
-                      #result boxes across the top
-                      layout_columns(
-                        class = "mt-3", #space below the pills
-                        result_box("Slope (°C per decade)", "tr_slope"),
-                        result_box("95% confidence interval", "tr_ci"),
-                        result_box("p-value", "tr_p"),
-                        result_box("R²", "tr_r2")
-                      ),
-                      card(card_header("Annual values with fitted trend: Brook (Role 1)"),
-                           p(class = "small text-muted mb-0", "Linear regression of temperature over time per city."),
-                           plotOutput("tr_fit", height = "300px")),
-                      layout_columns(
-                        col_widths = c(6, 6),
-                        card(card_header("Residuals vs. fitted: Brook (Role 1)"),
-                             plotOutput("tr_resid", height = "250px")),
-                        card(card_header("Normal Q-Q plot of residuals: Brook (Role 1)"),
-                             plotOutput("tr_qq", height = "250px"))
-                      ),
-                      card(card_header("What this means: Brook (Role 1)"),
-                           textOutput("tr_text"))
+                      layout_sidebar(
+                        class = "mt-3",
+                        
+                        # left side: controls for trend analysis
+                        sidebar = sidebar(
+                          title = "Choose your trend",
+                          width = 280,
+                          open = "always",
+                          selectInput("tr_city", strong("City"),
+                                      choices = city_choices,
+                                      selected = "92242"),
+                          radioButtons("tr_source", strong("Data source"),
+                                       choices = c("NOAA weather station", "NASA POWER (satellite)")),
+                          selectInput("tr_variable", strong("Variable"),
+                                      choices = c("Mean temperature (°C)",
+                                                  "Max temperature (°C)",
+                                                  "Min temperature (°C)")),
+                          layout_columns(
+                            numericInput("tr_year_from", "From", value = 1990, min = 1990, max = 2026),
+                            numericInput("tr_year_to", "To", value = 2026, min = 1990, max = 2026)
+                          )
+                        ),
+                        
+                        # right side: result boxes, diagnostic plots, and interpretation
+                        layout_columns(
+                          result_box("Slope (°C per decade)", "tr_slope"),
+                          result_box("95% confidence interval", "tr_ci"),
+                          result_box("p-value", "tr_p"),
+                          result_box("R²", "tr_r2")
+                        ),
+                        card(card_header("Annual values with fitted trend: Brook (Role 1)"),
+                             p(class = "small text-muted mb-0", "Linear regression of temperature over time for the selected city."),
+                             plotOutput("tr_fit", height = "300px")),
+                        layout_columns(
+                          col_widths = c(6, 6),
+                          card(card_header("Residuals vs. fitted: Brook (Role 1)"),
+                               plotOutput("tr_resid", height = "250px")),
+                          card(card_header("Normal Q-Q plot of residuals: Brook (Role 1)"),
+                               plotOutput("tr_qq", height = "250px"))
+                        ),
+                        card(card_header("What this means: Brook (Role 1)"),
+                             textOutput("tr_text"))
+                      )
              ),
              
              # ---------------- SATELLITE VS. STATION: Prashant (Role 2) ----------------
@@ -260,18 +283,48 @@ ui <- navbarPage(
              
              # ---------------- COMPARE TWO PERIODS: Brook (Role 1) ----------------
              tabPanel("Compare Two Periods",
-                      layout_columns(
-                        class = "mt-3", #space below the pills
-                        result_box("Period A mean", "cp_a_mean"),
-                        result_box("Period B mean", "cp_b_mean"),
-                        result_box("Difference (B minus A)", "cp_diff"),
-                        result_box("p-value", "cp_p")
-                      ),
-                      card(card_header("Distribution of daily values in each period: Brook (Role 1)"),
-                           p(class = "small text-muted mb-0", "Two-period comparison with a t-test or Wilcoxon test."),
-                           plotOutput("cp_dist", height = "300px")),
-                      card(card_header("What this means: Brook (Role 1)"),
-                           textOutput("cp_text"))
+                      layout_sidebar(
+                        class = "mt-3",
+                        
+                        # left side: controls for two-period comparison
+                        sidebar = sidebar(
+                          title = "Choose two periods",
+                          width = 280,
+                          open = "always",
+                          selectInput("cp_city", strong("City"),
+                                      choices = city_choices,
+                                      selected = "92242"),
+                          radioButtons("cp_source", strong("Data source"),
+                                       choices = c("NOAA weather station", "NASA POWER (satellite)")),
+                          selectInput("cp_variable", strong("Variable"),
+                                      choices = c("Mean temperature (°C)",
+                                                  "Max temperature (°C)",
+                                                  "Min temperature (°C)")),
+                          p(strong("Period A (earlier)")),
+                          layout_columns(
+                            numericInput("cp_a_from", "From", value = 1990, min = 1990, max = 2026),
+                            numericInput("cp_a_to", "To", value = 2005, min = 1990, max = 2026)
+                          ),
+                          p(strong("Period B (later)")),
+                          layout_columns(
+                            numericInput("cp_b_from", "From", value = 2010, min = 1990, max = 2026),
+                            numericInput("cp_b_to", "To", value = 2026, min = 1990, max = 2026)
+                          )
+                        ),
+                        
+                        # right side: result boxes, distribution plot, and interpretation
+                        layout_columns(
+                          result_box("Period A mean", "cp_a_mean"),
+                          result_box("Period B mean", "cp_b_mean"),
+                          result_box("Difference (B minus A)", "cp_diff"),
+                          result_box("p-value", "cp_p")
+                        ),
+                        card(card_header("Distribution of annual values in each period: Brook (Role 1)"),
+                             p(class = "small text-muted mb-0", "Two-period comparison using Welch's two-sample t-test."),
+                             plotOutput("cp_dist", height = "300px")),
+                        card(card_header("What this means: Brook (Role 1)"),
+                             textOutput("cp_text"))
+                      )
              )
            )
   )
@@ -282,32 +335,107 @@ server <- function(input, output, session) {
   
   #Explore tab placeholders (replace with real outputs)
   output$map     <- renderPlot(plot.new()) #Prashant
-  output$ts_plot <- renderPlot(plot.new()) #Brook
   output$summary <- renderTable(data.frame(Note = "Summary table coming soon")) #Prashant
   
   #Statistics result box placeholders (each owner replaces theirs with real results)
-  result_ids <- c("tr_slope", "tr_ci", "tr_p", "tr_r2",       #Brook
-                  "sv_bias", "sv_p", "sv_slope", "sv_rmse",   #Prashant
+  result_ids <- c(
+                  "sv_bias", "sv_p", "sv_slope", "sv_rmse" #Prashant
                   #Rachel's done
-                  "cp_a_mean", "cp_b_mean", "cp_diff", "cp_p") #Brook
+                 ) #Brook's Done
   for (id in result_ids) {
     output[[id]] <- renderText("--")
   }
   
   #Statistics chart placeholders (each owner replaces theirs with real plots)
-  plot_ids <- c("tr_fit", "tr_resid", "tr_qq",  #Brook
-                "sv_scatter", "sv_resid",        #Prashant
+  plot_ids <- c(  #Brook Done
+                "sv_scatter", "sv_resid"       #Prashant
                 #Rachel done
-                "cp_dist")                       #Brook
+                )                     
   for (id in plot_ids) {
     output[[id]] <- renderPlot(plot.new())
   }
   
   #"What this means" placeholders
-  text_ids <- c("tr_text", "sv_text", "cp_text")
+  
+  text_ids <- c("sv_text")#Prashant
   for (id in text_ids) {
     output[[id]] <- renderText("Plain-language interpretation coming soon.")
   }
+  
+  
+  # ---------------- TIME SERIES (Brook) ----------------
+  ts_data <- reactive({
+    req(input$source, input$variable, input$year_from, input$year_to)
+    prepare_explore_ts_data(
+      annual        = climate_annual,
+      city_ids      = input$cities,
+      source_choice = input$source,
+      var_label     = input$variable,
+      year_from     = input$year_from,
+      year_to       = input$year_to
+    )
+  })
+  
+  output$ts_plot <- renderPlot({
+    plot_explore_ts(
+      ts_df     = ts_data(),
+      var_label = input$variable
+    )
+  })
+  
+  # ---------------- TRENDS (Brook) ----------------
+  tr_data <- reactive({
+    req(input$tr_city, input$tr_source, input$tr_variable, input$tr_year_from, input$tr_year_to)
+    prepare_trends_data(
+      annual        = climate_annual,
+      city_id       = input$tr_city,
+      source_choice = input$tr_source,
+      var_label     = input$tr_variable,
+      year_from     = input$tr_year_from,
+      year_to       = input$tr_year_to
+    )
+  })
+  
+  tr_result <- reactive({
+    fit_trends_model(tr_data())
+  })
+  
+  format_tr_p <- function(p) {
+    if (p < 0.001) "< 0.001" else sprintf("%.3f", p)
+  }
+  
+  output$tr_slope <- renderText({
+    sprintf("%+.2f", tr_result()$slope_dec)
+  })
+  
+  output$tr_ci <- renderText({
+    r <- tr_result()
+    paste0("[", sprintf("%+.2f", r$ci_low), ", ", sprintf("%+.2f", r$ci_high), "]")
+  })
+  
+  output$tr_p <- renderText({
+    format_tr_p(tr_result()$p_value)
+  })
+  
+  output$tr_r2 <- renderText({
+    sprintf("%.2f", tr_result()$r_squared)
+  })
+  
+  output$tr_fit <- renderPlot({
+    plot_trends_fit(tr_result(), input$tr_variable)
+  })
+  
+  output$tr_resid <- renderPlot({
+    plot_trends_resid(tr_result())
+  })
+  
+  output$tr_qq <- renderPlot({
+    plot_trends_qq(tr_result())
+  })
+  
+  output$tr_text <- renderText({
+    describe_trends_result(tr_result(), input$tr_variable)
+  })
   
   # ---------------- DECADES AND REGIONS (Rachel) ----------------
   dr_data <- reactive({
@@ -355,6 +483,55 @@ server <- function(input, output, session) {
   
   output$dr_text <- renderText(describe_group_result(dr_result(), input$dr_group))
   
+  # ---------------- COMPARE TWO PERIODS (Brook) ----------------
+  cp_data <- reactive({
+    req(
+      input$cp_city, input$cp_source, input$cp_variable,
+      input$cp_a_from, input$cp_a_to, input$cp_b_from, input$cp_b_to
+    )
+    prepare_cp_data(
+      annual        = climate_annual,
+      city_id       = input$cp_city,
+      source_choice = input$cp_source,
+      var_label     = input$cp_variable,
+      a_from        = input$cp_a_from,
+      a_to          = input$cp_a_to,
+      b_from        = input$cp_b_from,
+      b_to          = input$cp_b_to
+    )
+  })
+  
+  cp_result <- reactive({
+    run_cp_test(cp_data())
+  })
+  
+  format_cp_p <- function(p) {
+    if (p < 0.001) "< 0.001" else sprintf("%.3f", p)
+  }
+  
+  output$cp_a_mean <- renderText({
+    sprintf("%.2f", cp_result()$mean_a)
+  })
+  
+  output$cp_b_mean <- renderText({
+    sprintf("%.2f", cp_result()$mean_b)
+  })
+  
+  output$cp_diff <- renderText({
+    sprintf("%+.2f", cp_result()$diff_ba)
+  })
+  
+  output$cp_p <- renderText({
+    format_cp_p(cp_result()$p_value)
+  })
+  
+  output$cp_dist <- renderPlot({
+    plot_cp_dist(cp_result(), input$cp_variable)
+  })
+  
+  output$cp_text <- renderText({
+    describe_cp_result(cp_result(), input$cp_variable)
+  })
   #every Explore output should start with:
   #validate(need(length(input$cities) > 0, "Please choose at least one city."))
 }
