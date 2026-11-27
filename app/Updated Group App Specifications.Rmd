@@ -1,0 +1,455 @@
+---
+title: "Updated Group Rmd Specifications"
+author: "Choudhary"
+date: "2026-11-18"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# ============================================================================
+# SHARED 48-CITY CONFIGURATION — ALL APPLICATION COLUMN NAMES ARE LOWERCASE
+# ============================================================================
+csv_path <- "top_cities.csv"
+
+top_cities <- readr::read_csv(
+  csv_path, 
+  col_types = readr::cols(
+    GEOID = readr::col_character(), 
+    .default = readr::col_guess()
+  )
+)
+
+required_city_columns <- c("region", "city", "state", "lat", "long", "GEOID", "population")
+stopifnot(all(required_city_columns %in% names(top_cities)))
+
+top_50_cities <- top_cities |>
+  dplyr::transmute(
+    region = as.character(region),
+    city = as.character(city),
+    state = as.character(state),
+    lat = as.numeric(lat),
+    lon = as.numeric(long),
+    geoid = as.character(GEOID),
+    pop = as.numeric(population)
+  )
+
+stopifnot(nrow(top_50_cities) == 48L,
+          !anyNA(top_50_cities[, c("city", "state", "lat", "lon")]),
+          !anyDuplicated(top_50_cities[, c("city", "state")]))
+
+# Brook's NASA POWER pipeline adapter: exact UPPERCASE schema requested.
+cities_config <- top_50_cities |>
+  dplyr::transmute(
+    REGION = region,
+    CITY = city,
+    STATE = state,
+    LAT = lat,
+    LON = lon,
+    GEOID = geoid,
+    POP = pop
+  )
+
+stopifnot(identical(names(cities_config),
+                    c("REGION", "CITY", "STATE", "LAT", "LON", "GEOID", "POP")),
+          nrow(cities_config) == 48L)
+
+print(top_50_cities, n = 10)
+```
+
+```{r}
+library(jsonlite)
+library(dplyr)
+library(tibble)
+library(purrr)
+
+# 1. NASA POWER API Data Pull (Washington D.C. example point)
+url <- "https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,PRECTOTCORR&community=RE&longitude=-77.0369&latitude=38.9072&start=19900101&end=20251231&format=JSON"
+
+json_text <- paste(readLines(url, warn = FALSE), collapse = "")
+parsed <- fromJSON(json_text)
+
+param_list <- parsed$properties$parameter
+
+climate_df <- map(names(param_list), function(param_name) {
+  p_data <- param_list[[param_name]]
+  tibble(
+    date_str = names(p_data),
+    value = unlist(p_data)
+  ) |> 
+    rename(!!param_name := value)
+}) |> 
+  reduce(full_join, by = "date_str") |> 
+  mutate(date = as.Date(date_str, format = "%Y%m%d")) |> 
+  select(-date_str) |> 
+  relocate(date)
+
+NASA.data <- climate_df
+head(NASA.data, 5)
+```
+
+```{r}
+library(tidyverse)
+library(readr)
+library(sf)
+
+# 1. Match NOAA stations using sf spatial coordinates from top_50_cities
+stations_url <- "https://www1.ncdc.noaa.gov/pub/data/ghcn/daily/ghcnd-stations.txt"
+col_widths <- c(11, 9, 9, 7, 31, 4, 4, 5)
+col_names <- c("station_id", "lat", "lon", "elevation", "state", "name", "gsn_flag", "wmo_id")
+
+stations_df <- read_fwf(stations_url, col_positions = fwf_widths(col_widths, col_names)) |>
+  filter(str_starts(station_id, "US"))
+
+cities_sf <- st_as_sf(top_50_cities, coords = c("lon", "lat"), crs = 4326, remove = FALSE)
+stations_sf <- st_as_sf(stations_df, coords = c("lon", "lat"), crs = 4326)
+
+nearest_idx <- st_nearest_feature(cities_sf, stations_sf)
+
+city_stations <- top_50_cities |>
+  mutate(
+    station_info_id = stations_df$station_id[nearest_idx],
+    station_name    = stations_df$name[nearest_idx],
+    distance_km     = as.numeric(st_distance(cities_sf, stations_sf[nearest_idx, ], by_element = TRUE)) / 1000
+  )
+
+# 2. Download the 2024 NOAA CSV ONCE, then filter locally for our station IDs
+target_station_ids <- unique(city_stations$station_info_id)
+noaa_s3_url <- "https://noaa-ghcn-pds.s3.amazonaws.com/csv/by_year/2024.csv"
+
+cat("Downloading 2024 NOAA GHCN data (this downloads once and filters instantly)...\n")
+
+all_noaa_raw <- read_csv(
+  noaa_s3_url, 
+  col_names = c("ID", "DATE", "ELEMENT", "DATA_VALUE", "M_FLAG", "Q_FLAG", "S_FLAG", "OBS_TIME"),
+  show_col_types = FALSE
+) |> 
+  filter(ID %in% target_station_ids)
+
+# 3. Filter elements, parse dates, and apply the 90% Completeness Rule
+expected_days <- 365 
+
+tidy_noaa_base <- all_noaa_raw %>%
+  filter(ELEMENT %in% c("TMAX", "TMIN", "PRCP")) %>%
+  mutate(
+    DATE = as.Date(as.character(DATE), format = "%Y%m%d"),
+    DATA_VALUE = as.numeric(DATA_VALUE)
+  ) %>%
+  select(ID, DATE, ELEMENT, DATA_VALUE)
+
+completeness_metrics <- tidy_noaa_base %>%
+  group_by(ID, ELEMENT) %>%
+  summarize(
+    days_recorded = n_distinct(DATE),
+    share_present = days_recorded / expected_days,
+    .groups = "drop"
+  ) %>%
+  left_join(city_stations, by = c("ID" = "station_info_id"))
+
+# 4. Diagnostic Report: Focus on San Jose and Denver
+cat("\n=== 90% COMPLETENESS CHECK: SAN JOSE & DENVER ===\n")
+target_cities_check <- completeness_metrics %>%
+  filter(city %in% c("San Jose", "Denver")) %>%
+  select(city, state, ID, ELEMENT, days_recorded, share_present)
+print(target_cities_check)
+
+# 5. Carry geoid through to final tidy dataset (mapping lowercase geoid to uppercase GEOID)
+final_tidy_noaa <- tidy_noaa_base %>%
+  left_join(
+    city_stations %>% select(station_info_id, geoid, city, state, region, lat, long),
+    by = c("ID" = "station_info_id")
+  ) %>%
+  select(GEOID = geoid, city, state, region, ID, lat, long, DATE, ELEMENT, DATA_VALUE)
+
+NOAA.data <- final_tidy_noaa
+print(head(NOAA.data, 5))
+```
+
+```{r}
+# 3. US Census Bureau Gazetteer Data Pull
+url_gaz <- "[https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2023_Gazetteer/2023_Gaz_place_national.zip](https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2023_Gazetteer/2023_Gaz_place_national.zip)"
+temp <- tempfile(fileext = ".zip")
+
+download.file(url_gaz, temp, mode = "wb")
+files <- unzip(temp, exdir = tempdir())
+
+gaz_data <- readr::read_tsv(
+  files[grepl("\\.txt$", files, ignore.case = TRUE)],
+  show_col_types = FALSE
+)
+
+Census.data <- gaz_data
+head(Census.data, 5)
+```
+
+```{r}
+library(dplyr)
+library(ggplot2)
+
+# ==========================================
+# Exploratory Data Analysis (EDA)
+# ==========================================
+cat("=== 1. NASA POWER DATA SUMMARY ===\n")
+print(dim(NASA.data))
+summary(NASA.data)
+
+cat("\n=== 2. NOAA GHCN WEATHER STATION DATA SUMMARY ===\n")
+print(dim(NOAA.data))
+
+cat("\n=== 3. CENSUS GAZETTEER DATA SUMMARY ===\n")
+print(dim(Census.data))
+```
+
+```{r}
+# Batch fetch NASA POWER climate data across all 48 cities
+get_nasa_power_city <- function(city_name, lat, lon, start = "19900101", end = format(Sys.Date(), "%Y%m%d")) {
+  url <- sprintf(
+    "[https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,QV2M&community=RE&longitude=%f&latitude=%f&start=%s&end=%s&format=JSON](https://power.larc.nasa.gov/api/temporal/daily/point?parameters=T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,QV2M&community=RE&longitude=%f&latitude=%f&start=%s&end=%s&format=JSON)",
+    lon, lat, start, end
+  )
+  
+  tryCatch({
+    resp <- request(url) |> req_perform()
+    parsed <- resp_body_json(resp)
+    param_list <- parsed$properties$parameter
+    
+    map(names(param_list), function(param_name) {
+      p_data <- param_list[[param_name]]
+      tibble(date_str = names(p_data), value = unlist(p_data)) |> 
+        rename(!!param_name := value)
+    }) |>
+      reduce(full_join, by = "date_str") |>
+      mutate(
+        date = as.Date(date_str, format = "%Y%m%d"),
+        city = city_name
+      ) |>
+      select(-date_str) |>
+      relocate(city, date)
+  }, error = function(e) {
+    message(paste("Error fetching data for", city_name, ":", e$message))
+    return(NULL)
+  })
+}
+
+all_cities_nasa <- purrr::pmap_dfr(
+  list(city_name = top_50_cities$city,
+       lat = top_50_cities$lat,
+       lon = top_50_cities$lon),
+  get_nasa_power_city
+)
+if (nrow(all_cities_nasa) == 0L) stop("NASA POWER returned no city data")
+```
+
+```{r}
+library(shiny)
+library(tidyverse)
+library(ggplot2)
+library(DT)
+library(leaflet)
+library(bslib)
+
+# ==============================================================================
+# UI DEFINITION
+# ==============================================================================
+ui <- navbarPage(
+  title = "Local Climate Explorer",
+  position = "static-top",
+  collapsible = TRUE,
+  fluid = TRUE,
+  theme = bslib::bs_theme(version = 5, bootswatch = "flatly"),
+
+  tabPanel(
+    "About",
+    h2("How has the climate changed where you live?"),
+    p("A demonstration app for teachers and students. Explore daily temperatures and precipitation for U.S. cities since 1990, examine statistical trends, and learn about NASA POWER and NOAA weather-station records.")
+  ),
+
+  tabPanel(
+    "Explore",
+    sidebarLayout(
+      sidebarPanel(
+        width = 3,
+        h4("Choose your Data"),
+        selectInput(
+          "selected_city", strong("City"),
+          choices = sort(unique(all_cities_nasa$city)),
+          selected = "New York"
+        ),
+        selectInput(
+          "climate_metric", strong("Variable"),
+          choices = c(
+            "Mean temperature (°C)" = "T2M",
+            "Max temperature (°C)" = "T2M_MAX",
+            "Min temperature (°C)" = "T2M_MIN",
+            "Precipitation (mm/day)" = "PRECTOTCORR",
+            "Specific humidity (g/kg)" = "QV2M"
+          ),
+          selected = "T2M"
+        ),
+        dateRangeInput(
+          "date_range", strong("Date range"),
+          start = "2020-01-01", end = Sys.Date(),
+          min = "1990-01-01", max = Sys.Date()
+        )
+      ),
+      mainPanel(
+        width = 9,
+        h3("Time Series Climate Trends"),
+        plotOutput("time_series_plot", height = "400px"),
+        hr(),
+        h3("U.S. Climate Map"),
+        leafletOutput("climate_map", height = "550px"),
+        hr(),
+        fluidRow(
+          column(6, h4("Summary Statistics"), verbatimTextOutput("summary_stats")),
+          column(6, h4("Nearest NOAA Station Metadata"), tableOutput("station_meta_table"))
+        )
+      )
+    )
+  ),
+
+  navbarMenu(
+    "Statistics",
+    tabPanel(
+      "Trends",
+      h3("Linear Trend & Ordinary Least Squares (OLS) Modeling"),
+      plotOutput("regression_plot", height = "400px"),
+      h4("Regression Model Summary"),
+      verbatimTextOutput("model_summary")
+    )
+  ),
+
+  tabPanel(
+    "Data Explorer",
+    h3("Filtered Dataset View"),
+    DTOutput("raw_data_table")
+  )
+)
+
+# ==============================================================================
+# SERVER LOGIC
+# ==============================================================================
+server <- function(input, output, session) {
+  
+  filtered_data <- reactive({
+    req(input$selected_city, input$date_range)
+    all_cities_nasa |>
+      filter(
+        city == input$selected_city,
+        date >= input$date_range[1],
+        date <= input$date_range[2]
+      )
+  })
+  
+  selected_station <- reactive({
+    req(input$selected_city)
+    city_stations |>
+      filter(city == input$selected_city)
+  })
+  
+  output$time_series_plot <- renderPlot({
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    
+    metric_label <- case_when(
+      input$climate_metric == "T2M" ~ "Mean Temperature (°C)",
+      input$climate_metric == "T2M_MAX" ~ "Max Temperature (°C)",
+      input$climate_metric == "T2M_MIN" ~ "Min Temperature (°C)",
+      input$climate_metric == "PRECTOTCORR" ~ "Precipitation (mm/day)",
+      input$climate_metric == "QV2M" ~ "Specific Humidity (g/kg)",
+      TRUE ~ input$climate_metric
+    )
+    
+    ggplot(df, aes(x = date, y = .data[[input$climate_metric]])) +
+      geom_line(color = "#2c3e50", alpha = 0.7, linewidth = 0.5) +
+      geom_smooth(method = "loess", color = "#e74c3c", se = TRUE, span = 0.2) +
+      theme_minimal(base_size = 14) +
+      labs(title = paste("Climate Trend for", input$selected_city), x = "Date", y = metric_label)
+  })
+  
+  output$summary_stats <- renderPrint({
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    summary(df[[input$climate_metric]])
+  })
+  
+  output$station_meta_table <- renderTable({
+    st <- selected_station()
+    req(nrow(st) > 0)
+    st |>
+      mutate(distance_km = round(distance_km, 2)) |>
+      rename(
+        City = city,
+        State = state,
+        Lat = lat,
+        Lon = lon,
+        "NOAA ID" = station_info_id,
+        "Station Name" = station_name,
+        "Distance (km)" = distance_km
+      )
+  })
+  
+  output$regression_plot <- renderPlot({
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    
+    ggplot(df, aes(x = date, y = .data[[input$climate_metric]])) +
+      geom_point(alpha = 0.3, color = "#7f8c8d", size = 1) +
+      geom_smooth(method = "lm", color = "#2980b9", se = TRUE, linewidth = 1) +
+      theme_minimal(base_size = 14) +
+      labs(title = paste("Linear Trend Analysis:", input$selected_city), x = "Date", y = input$climate_metric)
+  })
+  
+  output$model_summary <- renderPrint({
+    df <- filtered_data()
+    req(nrow(df) > 0)
+    formula_obj <- reformulate("date", response = input$climate_metric)
+    model <- lm(formula_obj, data = df)
+    summary(model)
+  })
+  
+  output$climate_map <- renderLeaflet({
+    metric <- input$climate_metric
+    
+    map_data <- all_cities_nasa |>
+      inner_join(top_50_cities, by = "city") |>
+      group_by(city, state, lat, lon) |>
+      summarize(
+        temp_change = {
+          fit <- lm(.data[[metric]] ~ as.numeric(date))
+          coef(fit)[2] * 365.25 * 10
+        },
+        .groups = "drop"
+      ) |>
+      drop_na(lat, lon, temp_change)
+    
+    pal <- colorNumeric(palette = "RdBu", domain = map_data$temp_change, reverse = TRUE)
+    
+    leaflet(map_data) |>
+      addProviderTiles(providers$OpenStreetMap.Mapnik) |>
+      setView(lng = -98.5795, lat = 39.8283, zoom = 4) |>
+      addCircleMarkers(
+        lng = ~lon, lat = ~lat, radius = 8,
+        color = ~pal(temp_change), stroke = TRUE, weight = 1, fillOpacity = 0.8,
+        popup = ~paste0("<strong>City: </strong>", city, ", ", state, "<br>", "<strong>Trend: </strong>", round(temp_change, 3), " units / decade")
+      ) |>
+      addLegend(position = "bottomright", pal = pal, values = ~temp_change, title = "Trend<br>(units / decade)", opacity = 1)
+  })
+  
+  output$raw_data_table <- renderDT({
+    datatable(filtered_data(), options = list(pageLength = 15, scrollX = TRUE), rownames = FALSE)
+  })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+
+
+
+
+
+
