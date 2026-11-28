@@ -5,6 +5,7 @@
 .Rproj.user/
 .Renviorn
 app/app_polished.R
+app/rsconnect/
 
 #OS files
 .DS_Store
