@@ -194,7 +194,7 @@ ui <- navbarPage(
                         
                         # left side: controls for trend analysis
                         sidebar = sidebar(
-                          title = "Choose your trend",
+                          title = "Choose your variable",
                           width = 280,
                           open = "always",
                           selectInput("tr_city", strong("City"),
@@ -205,7 +205,8 @@ ui <- navbarPage(
                           selectInput("tr_variable", strong("Variable"),
                                       choices = c("Mean temperature (°C)",
                                                   "Max temperature (°C)",
-                                                  "Min temperature (°C)")),
+                                                  "Min temperature (°C)",
+                                                  "Precipitation (mm)")),
                           layout_columns(
                             numericInput("tr_year_from", "From", value = 1990, min = 1990, max = 2026),
                             numericInput("tr_year_to", "To", value = 2026, min = 1990, max = 2026)
@@ -214,13 +215,13 @@ ui <- navbarPage(
                         
                         # right side: result boxes, diagnostic plots, and interpretation
                         layout_columns(
-                          result_box("Slope (°C per decade)", "tr_slope"),
+                          result_box("Slope (per decade)", "tr_slope"),
                           result_box("95% confidence interval", "tr_ci"),
                           result_box("p-value", "tr_p"),
                           result_box("R²", "tr_r2")
                         ),
                         card(card_header("Annual values with fitted trend: Brook (Role 1)"),
-                             p(class = "small text-muted mb-0", "Linear regression of temperature over time for the selected city."),
+                             p(class = "small text-muted mb-0", "Linear regression of the selected variable over time for the selected city."),
                              plotOutput("tr_fit", height = "300px")),
                         layout_columns(
                           col_widths = c(6, 6),
@@ -686,7 +687,7 @@ server <- function(input, output, session) {
   }
   
   output$tr_slope <- renderText({
-    sprintf("%+.2f", tr_result()$slope_dec)
+    sprintf("%+.2f %s", tr_result()$slope_dec, map_trends_var(input$tr_variable)$unit)
   })
   
   output$tr_ci <- renderText({
@@ -716,6 +717,13 @@ server <- function(input, output, session) {
   
   output$tr_text <- renderText({
     describe_trends_result(tr_result(), input$tr_variable)
+  })
+  
+  #NASA precip isn't in our data, so Trends precipitation always uses NOAA
+  observeEvent(input$tr_variable, {
+    if (input$tr_variable == "Precipitation (mm)") {
+      updateRadioButtons(session, "tr_source", selected = "NOAA weather station")
+    }
   })
   
   # ---------------- DECADES AND REGIONS (Rachel) ----------------
