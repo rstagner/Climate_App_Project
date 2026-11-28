@@ -7,7 +7,7 @@ Units: temperatures in °C, precipitation in mm, distances in km. `noaa_` column
 One row per city (48 rows). Made by `R/select_final_stations.R`.
 
 | Column | Description |
-|---|---|
+|----|----|
 | REGION | Census region (Northeast, Midwest, South, West) |
 | CITY | City name from the urban area name |
 | STATE | State abbreviation |
@@ -28,7 +28,7 @@ One row per city (48 rows). Made by `R/select_final_stations.R`.
 One row per city per day, January 1, 1990 to October 31, 2026. Made by `R/join_data.R`.
 
 | Column | Description |
-|---|---|
+|----|----|
 | GEOID | Urban area code |
 | date | Date |
 | nasa_mean, nasa_max, nasa_min | NASA POWER daily mean, max, min temperature at 2 m (T2M, T2M_MAX, T2M_MIN) |
@@ -46,7 +46,7 @@ NOAA values with a quality flag were removed, so missing days are NA.
 climate_joined plus derived variables. Made by `R/derive-variables.R`. `noaa_` and `nasa_` versions of each:
 
 | Column | Description |
-|---|---|
+|----|----|
 | decade | "1990s", "2000s", "2010s", "2020s" |
 | noaa_hdd, nasa_hdd | Heating degree days: max(18.3 - daily mean, 0) |
 | noaa_cdd, nasa_cdd | Cooling degree days: max(daily mean - 18.3, 0) |
@@ -59,7 +59,7 @@ climate_joined plus derived variables. Made by `R/derive-variables.R`. `noaa_` a
 One row per city per year (1,776 rows). Made by `R/summarize_climate.R`. 2026 is a partial year.
 
 | Column | Description |
-|---|---|
+|----|----|
 | GEOID, city, state, region, decade, year | Identifiers |
 | noaa_days, nasa_days | Days with a daily mean temperature. Use years with 330 or more. |
 | noaa_mean, noaa_max, noaa_min | Average of the daily values for the year |
@@ -78,7 +78,7 @@ One row per city per month (about 21,216 rows). Same columns as climate_annual, 
 ## Other files in `data/`
 
 | File | Description |
-|---|---|
+|----|----|
 | urban_areas_clean.rds | Cleaned Census urban area Gazetteer |
 | ua_pop_clean.rds | Urban area population from the Census API |
 | city_pool.rds, .csv | 60 candidate cities (15 largest per region) |

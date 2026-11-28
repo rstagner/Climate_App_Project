@@ -6,12 +6,12 @@ Group members: Prashant Choudhary, Brook Estifanos, Rachel Stagner
 
 Use case: Help high school science teachers and students explore how local climate has changed in U.S. cities since 1990, and how well satellite-modeled climate data matches what ground stations actually recorded.
 
-Live app: https://01a21dcf-8af9-0d09-afc3-f36f909e93a7.share.connect.posit.cloud/
+Live app: <https://01a21dcf-8af9-0d09-afc3-f36f909e93a7.share.connect.posit.cloud/>
 
 ## Data sources
 
 | Source | What we use | How we get it |
-|---|---|---|
+|------------------------|------------------------|------------------------|
 | NASA POWER | Daily mean, max, and min air temperature at 2 m (T2M, T2M_MAX, T2M_MIN), modeled from satellite and reanalysis data | REST API (httr2 + jsonlite), `data_raw/pull_nasa_power.R` |
 | NOAA GHCN-Daily | Daily max and min temperature and precipitation from weather stations | Raw station files from NCEI, `data_raw/pull_noaa_daily.R` |
 | U.S. Census Bureau | 2026 urban area Gazetteer (names, coordinates) and urban area population (API) | Gazetteer file in `data_raw/`, population from `data_raw/pull_census_ua_pop.R` |
@@ -34,18 +34,18 @@ Run from the project root (open `Climate_App_Project.Rproj` first so paths work)
 
 **1. Cities**
 
-1. `R/urban_areas_clean.R` reads the Gazetteer file, saves `data/urban_areas_clean.rds`
-2. `data_raw/pull_census_ua_pop.R` pulls urban area population from the Census API
-3. `R/census_data_cleaning.R` cleans the population data, saves `ua_pop_clean.rds`
-4. `R/select_cities.R` joins the two, adds Census regions, keeps the 15 largest urban areas per region, saves `data/city_pool.rds` (60 candidates)
+1.  `R/urban_areas_clean.R` reads the Gazetteer file, saves `data/urban_areas_clean.rds`
+2.  `data_raw/pull_census_ua_pop.R` pulls urban area population from the Census API
+3.  `R/census_data_cleaning.R` cleans the population data, saves `ua_pop_clean.rds`
+4.  `R/select_cities.R` joins the two, adds Census regions, keeps the 15 largest urban areas per region, saves `data/city_pool.rds` (60 candidates)
 
 **2. Weather stations**
 
-5. `data_raw/pull_noaa_stations.R` downloads the GHCN-Daily station list and inventory
-6. `R/match_stations.R` finds stations within 25 km of each candidate city (haversine distance), saves `data/station_candidates.rds`
-7. `data_raw/pull_noaa_daily.R` downloads daily records for every candidate station, saves `data_raw/noaa_raw_candidates_<date>.rds`
-8. `R/station_completeness.R` checks how complete each station's temperature and precipitation records are, saves `data/candidate_completeness.rds`
-9. `R/select_final_stations.R` keeps stations with at least 90% of temperature days, prefers Weather Service (USW) stations, then the nearest, and keeps the 12 largest cities per region. Saves `data/city_stations.rds` and `.csv` (48 cities)
+5.  `data_raw/pull_noaa_stations.R` downloads the GHCN-Daily station list and inventory
+6.  `R/match_stations.R` finds stations within 25 km of each candidate city (haversine distance), saves `data/station_candidates.rds`
+7.  `data_raw/pull_noaa_daily.R` downloads daily records for every candidate station, saves `data_raw/noaa_raw_candidates_<date>.rds`
+8.  `R/station_completeness.R` checks how complete each station's temperature and precipitation records are, saves `data/candidate_completeness.rds`
+9.  `R/select_final_stations.R` keeps stations with at least 90% of temperature days, prefers Weather Service (USW) stations, then the nearest, and keeps the 12 largest cities per region. Saves `data/city_stations.rds` and `.csv` (48 cities)
 
 **3. Climate data**
 
@@ -65,7 +65,7 @@ Run locally: open `app/app.R` and click Run App.
 
 Deploy (from the project root):
 
-```r
+``` r
 rsconnect::deployApp("app", appName = "us-cities-climate-explorer")
 ```
 
@@ -80,4 +80,4 @@ Set up the shinyapps.io account with `rsconnect::setAccountInfo()` in the consol
 - Precipitation is NOAA only.
 - Anomalies, heat-wave thresholds, and normals use 1991 to 2020, the current 30-year climate normal period (WMO, NOAA).
 - Heat-wave day: part of a run of 2 or more days with daily max above that city's 1991 to 2020 90th percentile.
-- Degree days use a base of 18.3 °C (65 °F).
+- Degree days use a base of 18.3 °C (65 °F), (EIA, NWS).
