@@ -82,7 +82,7 @@ ui <- navbarPage(
                  p(strong("NOAA GHCN-Daily"), "weather station observations, quality-flagged values removed"),
                  p(strong("U.S. Census Gazetteer"), "city names and coordinates"),
                  p(class = "text-muted small mb-0",
-                   paste0("Coverage: 48 cities from across the United States, January 1990 to October 2026. Date pulled ",
+                   paste0("Coverage: 48 cities from across the United States, January 1990 to November 2026. Date pulled ",
                           data_date, "."))
                )
              ),
