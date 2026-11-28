@@ -12,7 +12,8 @@ climate_annual <- climate |>
             noaa_mean = mean(noaa_mean, na.rm = TRUE),
             noaa_max = mean(noaa_max, na.rm = TRUE),
             noaa_min = mean(noaa_min, na.rm = TRUE),
-            noaa_precip = sum(noaa_precip, na.rm = TRUE),
+            noaa_precip_days = sum(!is.na(noaa_precip)), #count precip days before summing
+            noaa_precip = if (noaa_precip_days >= 330) sum(noaa_precip, na.rm = TRUE) else NA_real_,
             noaa_hdd = sum(noaa_hdd, na.rm = TRUE),
             noaa_cdd = sum(noaa_cdd, na.rm = TRUE),
             noaa_heatwave_days = sum(noaa_heatwave),
@@ -41,7 +42,8 @@ climate_monthly <- climate |>
             noaa_mean = mean(noaa_mean, na.rm = TRUE),
             noaa_max = mean(noaa_max, na.rm = TRUE),
             noaa_min = mean(noaa_min, na.rm = TRUE),
-            noaa_precip = sum(noaa_precip, na.rm = TRUE),
+            noaa_precip_days = sum(!is.na(noaa_precip)), #count precip days before summing
+            noaa_precip = if (noaa_precip_days >= 27) sum(noaa_precip, na.rm = TRUE) else NA_real_,
             noaa_hdd = sum(noaa_hdd, na.rm = TRUE),
             noaa_cdd = sum(noaa_cdd, na.rm = TRUE),
             noaa_heatwave_days = sum(noaa_heatwave),

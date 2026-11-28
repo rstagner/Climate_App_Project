@@ -1,28 +1,39 @@
 # Helper functions for Statistics -> Trends (tr_*)
 
 # map Trends UI variable choices to climate_annual columns
+# map Trends UI variable choices to climate_annual columns
 map_trends_var <- function(var_label) {
   switch(
     var_label,
     "Mean temperature (°C)" = list(
       noaa_col = "noaa_mean",
       nasa_col = "nasa_mean",
-      y_label  = "Mean temperature (°C)"
+      y_label  = "Mean temperature (°C)",
+      unit     = "°C"
     ),
     "Max temperature (°C)" = list(
       noaa_col = "noaa_max",
       nasa_col = "nasa_max",
-      y_label  = "Max temperature (°C)"
+      y_label  = "Max temperature (°C)",
+      unit     = "°C"
     ),
     "Min temperature (°C)" = list(
       noaa_col = "noaa_min",
       nasa_col = "nasa_min",
-      y_label  = "Min temperature (°C)"
+      y_label  = "Min temperature (°C)",
+      unit     = "°C"
+    ),
+    "Precipitation (mm)" = list(
+      noaa_col = "noaa_precip",
+      nasa_col = NA_character_, #NASA precipitation isn't in our data
+      y_label  = "Annual precipitation (mm)",
+      unit     = "mm"
     ),
     list(
       noaa_col = "noaa_mean",
       nasa_col = "nasa_mean",
-      y_label  = "Mean temperature (°C)"
+      y_label  = "Mean temperature (°C)",
+      unit     = "°C"
     )
   )
 }
@@ -47,6 +58,12 @@ prepare_trends_data <- function(annual,
   use_noaa <- identical(source_choice, "NOAA weather station")
   col_name <- if (use_noaa) var_meta$noaa_col else var_meta$nasa_col
   day_col  <- if (use_noaa) "noaa_days" else "nasa_days"
+  
+  #validation checks
+  shiny::validate(
+    shiny::need(use_noaa || !is.na(var_meta$nasa_col),
+                "Precipitation is only available from NOAA weather stations. Choose \"NOAA weather station\".")
+  )
   
   shiny::validate(
     shiny::need(col_name %in% names(annual),
@@ -134,8 +151,9 @@ plot_trends_fit <- function(trend_res, var_label) {
     ggplot2::geom_smooth(method = "lm", se = TRUE, color = "#d95f02", fill = "#d95f02", alpha = 0.18) +
     ggplot2::labs(
       title    = paste0(trend_res$city_label, " (", trend_res$year_start, "–", trend_res$year_end, ")"),
-      subtitle = sprintf("Trend: %+.2f °C/decade (p = %s)",
+      subtitle = sprintf("Trend: %+.2f %s/decade (p = %s)",
                          trend_res$slope_dec,
+                         var_meta$unit,
                          if (trend_res$p_value < 0.001) "< 0.001" else sprintf("%.3f", trend_res$p_value)),
       x        = "Year",
       y        = var_meta$y_label
@@ -177,12 +195,17 @@ plot_trends_qq <- function(trend_res) {
 }
 
 # plain-language summary written for high school students
+# plain-language summary written for high school students
 describe_trends_result <- function(trend_res, var_label) {
+  var_meta  <- map_trends_var(var_label)
+  is_precip <- var_meta$unit == "mm"
+  var_name  <- tolower(sub(" \\(.*", "", var_meta$y_label)) #e.g., "mean temperature"
   rate_abs  <- abs(trend_res$slope_dec)
+  
   direction <- if (trend_res$slope_dec > 0.01) {
-    "trending upward (warmer)"
+    if (is_precip) "trending upward (wetter)" else "trending upward (warmer)"
   } else if (trend_res$slope_dec < -0.01) {
-    "trending downward (cooler)"
+    if (is_precip) "trending downward (drier)" else "trending downward (cooler)"
   } else {
     "staying nearly flat"
   }
@@ -197,10 +220,10 @@ describe_trends_result <- function(trend_res, var_label) {
   
   paste0(
     "In ", trend_res$city_label, " (", trend_res$year_start, " to ", trend_res$year_end,
-    "), ", tolower(var_label), " is ", direction, " at about ",
-    sprintf("%.2f", rate_abs), " per decade (95% confidence interval: ",
+    "), ", var_name, " is ", direction, " at about ",
+    sprintf("%.2f", rate_abs), " ", var_meta$unit, " per decade (95% confidence interval: ",
     sprintf("%+.2f", trend_res$ci_low), " to ", sprintf("%+.2f", trend_res$ci_high),
-    " per decade). ", sig_text,
+    " ", var_meta$unit, " per decade). ", sig_text,
     " Year explains about ", r2_pct, "% of the total year-to-year variation, ",
     "which is normal because weather bounces around a lot from one year to the next."
   )
