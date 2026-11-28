@@ -25,10 +25,10 @@ city_pool <- urban_join |>
 
 #check work
 nrow(city_pool) #should be 60
-city_pool|> count(region)   #15 in each region
-city_pool |> 
-  filter(!city %in% readRDS("data/top_cities.rds")$city) |> 
-  select(region, city, state, population) #12 new spare candidates
+#city_pool|> count(region)   #15 in each region
+#city_pool |> 
+#  filter(!city %in% readRDS("data/top_cities.rds")$city) |> 
+#  select(region, city, state, population) #12 new spare candidates
 
 #save RDS file
 saveRDS(city_pool, "data/city_pool.rds")

@@ -16,4 +16,4 @@ ua_pop_clean <- ua_pop |>
 glimpse(ua_pop_clean)
 
 #save as rds file in prep for merging
-saveRDS(ua_pop_clean, "ua_pop_clean.rds")
+saveRDS(ua_pop_clean, "data/ua_pop_clean.rds")

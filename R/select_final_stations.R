@@ -21,9 +21,9 @@ city_stations |>  count(region) #should be 12 per region
 city_stations |>  count(is_wban) #check for which stations are Weather Service
 
 #which cities changed from the original list
-city_stations |> 
-  filter(!city %in% readRDS("data/top_cities.rds")$city) |> 
-  select(region, city, station_name, temp_pct)
+#city_stations |> 
+#  filter(!city %in% readRDS("data/top_cities.rds")$city) |> 
+#  select(region, city, station_name, temp_pct)
 
 #rename to match the config and keep the final columns
 city_stations <- city_stations |> 
