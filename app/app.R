@@ -2,10 +2,35 @@ library(shiny)
 library(tidyverse)
 library(bslib)
 library(bsicons)
+library(leaflet)
 
 # placeholder for data loading; more will be added
 city_stations <- readRDS("data/city_stations.rds")
 climate_annual <- readRDS("data/climate_annual.rds")
+climate_joined <- readRDS("data/climate_joined.rds")
+
+#seasonal means for the Satellite vs. Station tab (Prashant)
+climate_seasonal <- climate_joined |>
+  mutate(
+    month_num = lubridate::month(date),
+    season = case_when(
+      month_num %in% c(12, 1, 2) ~ "Winter",
+      month_num %in% c(3, 4, 5)  ~ "Spring",
+      month_num %in% c(6, 7, 8)  ~ "Summer",
+      TRUE                       ~ "Fall"
+    ),
+    season = factor(season, levels = c("Winter", "Spring", "Summer", "Fall"))
+  ) |>
+  group_by(GEOID, city, state, year, season) |>
+  summarise(
+    noaa_mean = mean(noaa_mean, na.rm = TRUE),
+    noaa_max  = mean(noaa_max,  na.rm = TRUE),
+    noaa_min  = mean(noaa_min,  na.rm = TRUE),
+    nasa_mean = mean(nasa_mean, na.rm = TRUE),
+    nasa_max  = mean(nasa_max,  na.rm = TRUE),
+    nasa_min  = mean(nasa_min,  na.rm = TRUE),
+    .groups = "drop"
+  )
 
 #build the city choices: "City, ST" labels in alphabetical order, GEOID is the value
 city_list <- city_stations |>
@@ -139,7 +164,7 @@ ui <- navbarPage(
                  card(
                    card_header("Map: Prashant (Role 2)"),
                    #use leafletOutput("map") instead if the map uses leaflet
-                   plotOutput("map", height = "300px")
+                   leafletOutput("map", height = "300px")
                  ),
                  card(
                    card_header("Time Series: Brook (Role 1)"),
@@ -210,25 +235,43 @@ ui <- navbarPage(
              ),
              
              # ---------------- SATELLITE VS. STATION: Prashant (Role 2) ----------------
-             tabPanel("Satellite vs. Station",
-                      layout_columns(
-                        class = "mt-3", #space below the pills
-                        result_box("Mean bias (POWER minus station)", "sv_bias"),
-                        result_box("Paired test p-value", "sv_p"),
-                        result_box("Regression slope", "sv_slope"),
-                        result_box("RMSE", "sv_rmse")
-                      ),
-                      layout_columns(
-                        col_widths = c(7, 5),
-                        card(card_header("Station vs. POWER, with 1:1 line: Prashant (Role 2)"),
-                             p(class = "small text-muted mb-0", "Regression of station temperature on NASA POWER temperature."),
-                             plotOutput("sv_scatter", height = "300px")),
-                        card(card_header("Residuals by season: Prashant (Role 2)"),
-                             plotOutput("sv_resid", height = "300px"))
-                      ),
-                      card(card_header("What this means: Prashant (Role 2)"),
-                           textOutput("sv_text"))
-             ),
+tabPanel("Satellite vs. Station",
+         layout_sidebar(
+           class = "mt-3",
+           sidebar = sidebar(
+             title = "Choose comparison",
+             width = 280,
+             open = "always",
+             selectInput("sv_city", strong("City"),
+                         choices = c("All 48 cities" = "all", city_choices),
+                         selected = "all"),
+             selectInput("sv_variable", strong("Variable"),
+                         choices = c("Mean temperature (°C)" = "mean",
+                                     "Max temperature (°C)"  = "max",
+                                     "Min temperature (°C)"  = "min")),
+             layout_columns(
+               numericInput("sv_year_from", "From", value = 1990, min = 1990, max = 2026),
+               numericInput("sv_year_to", "To", value = 2026, min = 1990, max = 2026)
+             )
+           ),
+           layout_columns(
+             result_box("Mean bias (POWER minus station)", "sv_bias"),
+             result_box("Paired test p-value", "sv_p"),
+             result_box("Regression slope", "sv_slope"),
+             result_box("RMSE", "sv_rmse")
+           ),
+           layout_columns(
+             col_widths = c(7, 5),
+             card(card_header("Station vs. POWER, with 1:1 line: Prashant (Role 2)"),
+                  p(class = "small text-muted mb-0", "Regression of station temperature on NASA POWER temperature."),
+                  plotOutput("sv_scatter", height = "300px")),
+             card(card_header("Residuals by season: Prashant (Role 2)"),
+                  plotOutput("sv_resid", height = "300px"))
+           ),
+           card(card_header("What this means: Prashant (Role 2)"),
+                textOutput("sv_text"))
+         )
+),
              
              # ---------------- DECADES AND REGIONS: Rachel (Role 3) ----------------
              tabPanel("Decades and Regions",
@@ -334,34 +377,249 @@ ui <- navbarPage(
 
 server <- function(input, output, session) {
   
-  #Explore tab placeholders (replace with real outputs)
-  output$map     <- renderPlot(plot.new()) #Prashant
-  output$summary <- renderTable(data.frame(Note = "Summary table coming soon")) #Prashant
-  
-  #Statistics result box placeholders (each owner replaces theirs with real results)
-  result_ids <- c(
-                  "sv_bias", "sv_p", "sv_slope", "sv_rmse" #Prashant
-                  #Rachel's done
-                 ) #Brook's Done
-  for (id in result_ids) {
-    output[[id]] <- renderText("--")
+  # Helper to map Explore variable label to column suffix
+  explore_var_col <- function(source_prefix, var_label) {
+    suffix <- switch(var_label,
+      "Mean temperature (°C)" = "mean",
+      "Max temperature (°C)"  = "max",
+      "Min temperature (°C)"  = "min",
+      "Precipitation (mm)"    = "precip"
+    )
+    paste0(source_prefix, "_", suffix)
   }
-  
-  #Statistics chart placeholders (each owner replaces theirs with real plots)
-  plot_ids <- c(  #Brook Done
-                "sv_scatter", "sv_resid"       #Prashant
-                #Rachel done
-                )                     
-  for (id in plot_ids) {
-    output[[id]] <- renderPlot(plot.new())
-  }
-  
-  #"What this means" placeholders
-  
-  text_ids <- c("sv_text")#Prashant
-  for (id in text_ids) {
-    output[[id]] <- renderText("Plain-language interpretation coming soon.")
-  }
+
+  # ---------------- EXPLORE MAP & SUMMARY (Prashant) ----------------
+  explore_city_stats <- reactive({
+    validate(need(length(input$cities) > 0, "Please choose at least one city."))
+    validate(need(input$year_from <= input$year_to, "'From' year must be <= 'To' year."))
+    validate(need(
+      !(input$variable == "Precipitation (mm)" && input$source != "NOAA weather station"),
+      "Precipitation is only available from NOAA weather stations."
+    ))
+    
+    df_yr <- climate_annual |>
+      filter(year >= input$year_from, year <= input$year_to)
+    
+    noaa_col <- explore_var_col("noaa", input$variable)
+    nasa_col <- if (input$variable == "Precipitation (mm)") NULL else explore_var_col("nasa", input$variable)
+    
+    # Aggregate all 48 cities for map coloring (complete years only)
+    stats <- df_yr |>
+      group_by(GEOID) |>
+      summarise(
+        noaa_val = mean(if_else(noaa_days >= 330, .data[[noaa_col]], NA_real_), na.rm = TRUE),
+        nasa_val = if (!is.null(nasa_col)) mean(if_else(nasa_days >= 330, .data[[nasa_col]],
+                                                        NA_real_), na.rm = TRUE) else NA_real_,
+        .groups = "drop"
+      ) |>
+      mutate(
+        display_val = case_when(
+          input$source == "NASA POWER (satellite)" ~ nasa_val,
+          input$source == "NOAA weather station"   ~ noaa_val,
+          TRUE ~ (noaa_val + nasa_val) / 2
+        )
+      )
+    
+    city_stations |>
+      left_join(stats, by = "GEOID") |>
+      mutate(is_selected = GEOID %in% input$cities)
+  })
+
+  output$map <- renderLeaflet({
+    df <- explore_city_stats()
+    pal_name <- if (input$variable == "Precipitation (mm)") "Blues" else "YlOrRd"
+    pal <- colorNumeric(palette = pal_name, domain = df$display_val, na.color = "#CCCCCC")
+
+    popups <- sprintf(
+      "<strong>%s, %s</strong> (%s)<br/>Station: %s (%.1f km)<br/>%s: <strong>%.2f</strong>",
+      df$CITY, df$STATE, df$REGION, df$station_name, df$dist_km, input$variable, df$display_val
+    )
+
+    leaflet(df) |>
+      addProviderTiles(providers$Esri.WorldGrayCanvas) |> #free light basemap, no API key needed
+      setView(lng = -96, lat = 38, zoom = 3) |> #start centered on U.S.
+      addCircleMarkers(
+        data = filter(df, !is_selected),
+        lng = ~LON, lat = ~LAT,
+        radius = 5, stroke = TRUE, weight = 1, color = "#555555",
+        fillColor = ~pal(display_val), fillOpacity = 0.6,
+        popup = popups[!df$is_selected],
+        label = ~paste0(CITY, ", ", STATE)
+      ) |>
+      addCircleMarkers(
+        data = filter(df, is_selected),
+        lng = ~LON, lat = ~LAT,
+        radius = 9, stroke = TRUE, weight = 2.5, color = "#111111",
+        fillColor = ~pal(display_val), fillOpacity = 0.95,
+        popup = popups[df$is_selected],
+        label = ~paste0(CITY, ", ", STATE, " (Selected)")
+      ) |>
+      addLegend(
+        position = "bottomleft", pal = pal, values = ~display_val,
+        title = input$variable, opacity = 0.85
+      )
+  })
+
+  output$summary <- renderTable({
+    validate(need(length(input$cities) > 0, "Please choose at least one city."))
+    validate(need(input$year_from <= input$year_to, "'From' year must be <= 'To' year."))
+    validate(need(
+      !(input$variable == "Precipitation (mm)" && input$source != "NOAA weather station"),
+      "Precipitation is only available from NOAA weather stations."
+    ))
+
+    df_sel <- climate_annual |>
+      filter(GEOID %in% input$cities, year >= input$year_from, year <= input$year_to)
+
+    calc_summary <- function(dat, col_name, src_label) {
+      days_col <- paste0(sub("_.*", "", col_name), "_days") #noaa_days or nasa_days
+      dat |>
+        filter(!is.na(.data[[col_name]]), .data[[days_col]] >= 330) |> #complete years only
+        group_by(City = paste0(city, ", ", state)) |>
+        summarise(
+          Source = src_label,
+          Years  = n(),
+          Mean   = round(mean(.data[[col_name]]), 2),
+          SD     = round(sd(.data[[col_name]]), 2),
+          Min    = round(min(.data[[col_name]]), 2),
+          Max    = round(max(.data[[col_name]]), 2),
+          `Trend (/decade)` = if (n() >= 2) {
+            round(coef(lm(.data[[col_name]] ~ year))[2] * 10, 2)
+          } else {
+            NA_real_
+          },
+          .groups = "drop"
+        )
+    }
+
+    if (input$source == "NOAA weather station") {
+      calc_summary(df_sel, explore_var_col("noaa", input$variable), "NOAA Station")
+    } else if (input$source == "NASA POWER (satellite)") {
+      calc_summary(df_sel, explore_var_col("nasa", input$variable), "NASA POWER")
+    } else {
+      bind_rows(
+        calc_summary(df_sel, explore_var_col("noaa", input$variable), "NOAA Station"),
+        calc_summary(df_sel, explore_var_col("nasa", input$variable), "NASA POWER")
+      ) |> arrange(City, Source)
+    }
+  })
+
+  # ---------------- SATELLITE VS. STATION (Prashant) ----------------
+  sv_data <- reactive({
+    validate(need(input$sv_year_from <= input$sv_year_to, "'From' year must be <= 'To' year."))
+    
+    noaa_col <- paste0("noaa_", input$sv_variable)
+    nasa_col <- paste0("nasa_", input$sv_variable)
+    
+    df <- climate_annual |>
+      filter(year >= input$sv_year_from, year <= input$sv_year_to,
+             noaa_days >= 330, nasa_days >= 330) #complete years only
+    if (input$sv_city != "all") {
+      df <- df |> filter(GEOID == input$sv_city)
+    }
+    
+    df <- df |>
+      transmute(
+        GEOID, city, state, year,
+        noaa = .data[[noaa_col]],
+        nasa = .data[[nasa_col]],
+        diff = nasa - noaa
+      ) |>
+      filter(!is.na(noaa), !is.na(nasa))
+    
+    validate(need(nrow(df) >= 3, "Not enough paired observations in this range."))
+    df
+  })
+
+  sv_seasonal_data <- reactive({
+    validate(need(input$sv_year_from <= input$sv_year_to, "'From' year must be <= 'To' year."))
+
+    noaa_col <- paste0("noaa_", input$sv_variable)
+    nasa_col <- paste0("nasa_", input$sv_variable)
+
+    df <- climate_seasonal |>
+      filter(year >= input$sv_year_from, year <= input$sv_year_to)
+    if (input$sv_city != "all") {
+      df <- df |> filter(GEOID == input$sv_city)
+    }
+
+    df |>
+      transmute(
+        season,
+        diff = .data[[nasa_col]] - .data[[noaa_col]]
+      ) |>
+      filter(!is.na(diff))
+  })
+
+  sv_stats <- reactive({
+    df <- sv_data()
+    fit <- lm(noaa ~ nasa, data = df)
+    tt  <- t.test(df$nasa, df$noaa, paired = TRUE)
+    list(
+      fit   = fit,
+      bias  = mean(df$diff),
+      p_val = tt$p.value,
+      slope = unname(coef(fit)[2]),
+      rmse  = sqrt(mean(df$diff^2))
+    )
+  })
+
+  output$sv_bias  <- renderText(sprintf("%+.2f °C", sv_stats()$bias))
+  output$sv_p     <- renderText({ p <- sv_stats()$p_val; if (p < 0.001) "< 0.001" else sprintf("%.3f", p) })
+  output$sv_slope <- renderText(sprintf("%.3f", sv_stats()$slope))
+  output$sv_rmse  <- renderText(sprintf("%.2f °C", sv_stats()$rmse))
+
+  output$sv_scatter <- renderPlot({
+    df <- sv_data()
+    ggplot(df, aes(x = nasa, y = noaa)) +
+      geom_point(alpha = 0.55, color = "#2166AC") +
+      geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray40", linewidth = 0.8) +
+      geom_smooth(method = "lm", formula = y ~ x, se = TRUE, color = "#D95F02", linewidth = 0.9) +
+      labs(
+        x = "NASA POWER (°C)",
+        y = "NOAA Station (°C)",
+        caption = "Dashed line = 1:1 agreement; Orange line = linear regression fit"
+      ) +
+      theme_minimal(base_size = 13)
+  })
+
+  output$sv_resid <- renderPlot({
+    df <- sv_seasonal_data()
+    ggplot(df, aes(x = season, y = diff, fill = season)) +
+      geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+      geom_boxplot(alpha = 0.75, outlier.alpha = 0.35) +
+      scale_fill_brewer(palette = "Set2") +
+      labs(
+        x = "Season",
+        y = "POWER minus Station (°C)"
+      ) +
+      theme_minimal(base_size = 13) +
+      theme(legend.position = "none")
+  })
+
+  output$sv_text <- renderText({
+    s <- sv_stats()
+    seas <- sv_seasonal_data() |>
+      group_by(season) |>
+      summarise(mean_diff = mean(diff), .groups = "drop") |>
+      slice_max(abs(mean_diff), n = 1)
+
+    city_label <- if (input$sv_city == "all") "all 48 cities" else names(city_choices)[city_choices == input$sv_city]
+    var_label  <- switch(input$sv_variable,
+                         "mean" = "mean temperature",
+                         "max"  = "max temperature",
+                         "min"  = "min temperature")
+    direction  <- if (s$bias > 0) "warmer" else "cooler"
+    sig_phrase <- if (s$p_val < 0.05) "statistically significant" else "not statistically significant"
+
+    sprintf(
+      "For %s (%s, %d–%d), NASA POWER is on average %.2f °C %s than NOAA ground stations (paired t-test p %s, %s). The regression slope of %.3f and RMSE of %.2f °C show how closely satellite estimates track station readings, with the largest average seasonal gap in %s (%+.2f °C).",
+      city_label, var_label, input$sv_year_from, input$sv_year_to,
+      abs(s$bias), direction,
+      if (s$p_val < 0.001) "< 0.001" else paste("=", sprintf("%.3f", s$p_val)),
+      sig_phrase, s$slope, s$rmse, seas$season, seas$mean_diff
+    )
+  })
   
   #NASA precip isn't in our dta, so precipitation always uses NOAA
   observeEvent(input$variable, {
