@@ -68,7 +68,7 @@ ui <- navbarPage(
   tabPanel("About",
            h2("How has the climate changed where you live?"),
            p("A demonstration app for teachers and students. With this app, you can explore
-                daily temperatures and precipitation data for cities around the U.S. since 1990,
+                daily temperatures and precipitation data for urban areas around the U.S. since 1990,
                 test whether trends are statistically meaningful, and compare NASA satellite-modeled
                 data with NOAA weather station records."),
            #add cards on the "About" Panel
@@ -90,7 +90,7 @@ ui <- navbarPage(
                    p(class = "text-muted small mb-0", "Statistics > Decades and Regions")
                  )),
                  card(class = "bg-light", card_body(
-                   strong("Was this summer unusual?"),
+                   strong("Were the last few years unusual?"),
                    p(class = "text-muted small mb-0", "Statistics > Compare Two Time Periods")
                  ))
                  #need to add additional cards with data sources, names, etc
@@ -389,75 +389,55 @@ server <- function(input, output, session) {
   }
 
   # ---------------- EXPLORE MAP & SUMMARY (Prashant) ----------------
-  explore_city_stats <- reactive({
-    validate(need(length(input$cities) > 0, "Please choose at least one city."))
-    validate(need(input$year_from <= input$year_to, "'From' year must be <= 'To' year."))
-    validate(need(
-      !(input$variable == "Precipitation (mm)" && input$source != "NOAA weather station"),
-      "Precipitation is only available from NOAA weather stations."
-    ))
-    
-    df_yr <- climate_annual |>
-      filter(year >= input$year_from, year <= input$year_to)
-    
-    noaa_col <- explore_var_col("noaa", input$variable)
-    nasa_col <- if (input$variable == "Precipitation (mm)") NULL else explore_var_col("nasa", input$variable)
-    
-    # Aggregate all 48 cities for map coloring (complete years only)
-    stats <- df_yr |>
-      group_by(GEOID) |>
-      summarise(
-        noaa_val = mean(if_else(noaa_days >= 330, .data[[noaa_col]], NA_real_), na.rm = TRUE),
-        nasa_val = if (!is.null(nasa_col)) mean(if_else(nasa_days >= 330, .data[[nasa_col]],
-                                                        NA_real_), na.rm = TRUE) else NA_real_,
-        .groups = "drop"
-      ) |>
-      mutate(
-        display_val = case_when(
-          input$source == "NASA POWER (satellite)" ~ nasa_val,
-          input$source == "NOAA weather station"   ~ noaa_val,
-          TRUE ~ (noaa_val + nasa_val) / 2
-        )
-      )
-    
-    city_stations |>
-      left_join(stats, by = "GEOID") |>
-      mutate(is_selected = GEOID %in% input$cities)
-  })
-
   output$map <- renderLeaflet({
-    df <- explore_city_stats()
-    pal_name <- if (input$variable == "Precipitation (mm)") "Blues" else "YlOrRd"
-    pal <- colorNumeric(palette = pal_name, domain = df$display_val, na.color = "#CCCCCC")
-
-    popups <- sprintf(
-      "<strong>%s, %s</strong> (%s)<br/>Station: %s (%.1f km)<br/>%s: <strong>%.2f</strong>",
-      df$CITY, df$STATE, df$REGION, df$station_name, df$dist_km, input$variable, df$display_val
+    validate(need(length(input$cities) > 0, "Please choose at least one city."))
+    
+    #only the selected cities, with their matched NOAA station
+    df <- city_stations |>
+      filter(GEOID %in% input$cities)
+    
+    city_popups <- sprintf(
+      "<strong>%s, %s</strong><br/>Urban area center (Census)<br/>Station: %s<br/>Distance: %.1f km",
+      df$CITY, df$STATE, df$station_name, df$dist_km
     )
-
-    leaflet(df) |>
-      addProviderTiles(providers$Esri.WorldGrayCanvas) |> #free light basemap, no API key needed
-      setView(lng = -96, lat = 38, zoom = 3) |> #start centered on U.S.
-      addCircleMarkers(
-        data = filter(df, !is_selected),
-        lng = ~LON, lat = ~LAT,
-        radius = 5, stroke = TRUE, weight = 1, color = "#555555",
-        fillColor = ~pal(display_val), fillOpacity = 0.6,
-        popup = popups[!df$is_selected],
-        label = ~paste0(CITY, ", ", STATE)
-      ) |>
-      addCircleMarkers(
-        data = filter(df, is_selected),
-        lng = ~LON, lat = ~LAT,
-        radius = 9, stroke = TRUE, weight = 2.5, color = "#111111",
-        fillColor = ~pal(display_val), fillOpacity = 0.95,
-        popup = popups[df$is_selected],
-        label = ~paste0(CITY, ", ", STATE, " (Selected)")
-      ) |>
-      addLegend(
-        position = "bottomleft", pal = pal, values = ~display_val,
-        title = input$variable, opacity = 0.85
-      )
+    station_popups <- sprintf(
+      "<strong>%s</strong><br/>NOAA station for %s, %s<br/>Distance: %.1f km",
+      df$station_name, df$CITY, df$STATE, df$dist_km
+    )
+    
+    m <- leaflet(df) |>
+      addProviderTiles(providers$Esri.WorldGrayCanvas)
+    
+    #dashed line from each city to its station
+    for (i in seq_len(nrow(df))) {
+      m <- m |>
+        addPolylines(lng = c(df$LON[i], df$station_long[i]),
+                     lat = c(df$LAT[i], df$station_lat[i]),
+                     color = "#555555", weight = 2, dashArray = "5,5")
+    }
+    
+    m |>
+      #urban area centers: dark circles, with permanent city labels
+      addCircleMarkers(lng = ~LON, lat = ~LAT,
+                       radius = 8, color = "#2C3E50", fillOpacity = 0.9, weight = 2,
+                       popup = city_popups,
+                       label = ~paste0(CITY, ", ", STATE),
+                       labelOptions = labelOptions(noHide = TRUE, direction = "top",
+                                                   textOnly = TRUE,
+                                                   style = list("font-weight" = "bold"))) |>
+      #stations: orange circles, name shows on hover
+      addCircleMarkers(lng = ~station_long, lat = ~station_lat,
+                       radius = 6, color = "#D95F02", fillOpacity = 0.9, weight = 2,
+                       popup = station_popups,
+                       label = ~station_name) |>
+      addLegend(position = "bottomright",
+                colors = c("#2C3E50", "#D95F02"),
+                labels = c("Urban area center", "NOAA station"),
+                opacity = 0.9) |>
+      #zoom to fit everything selected
+      fitBounds(lng1 = min(c(df$LON, df$station_long)), lat1 = min(c(df$LAT, df$station_lat)),
+                lng2 = max(c(df$LON, df$station_long)), lat2 = max(c(df$LAT, df$station_lat)),
+                options = list(padding = c(30, 30)))
   })
 
   output$summary <- renderTable({
